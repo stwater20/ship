@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>戰艦大和 Yamato</title>
+<meta name="description" content="駕駛戰艦大和：真實波浪、46cm 主砲、日夜循環、暴風雨、海豚與計時賽。" />
+<meta name="theme-color" content="#0a2236" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="race" class="panel">
+    <div class="label">單圈時間 LAP</div>
+    <div id="lapTime" class="big">--:--.--</div>
+    <div class="row"><span>檢查點 GATE</span><b id="gateNum">START</b></div>
+    <div class="row"><span>最佳 BEST</span><b id="bestTime">--</b></div>
+    <div class="row"><span>補給 SUPPLY</span><b id="coins">0</b></div>
+    <div class="row"><span>擊沉 SUNK</span><b id="kills">0</b></div>
+  </div>
+
+  <div id="mapWrap" class="panel">
+    <canvas id="minimap" width="200" height="200"></canvas>
+    <div id="heading">N 000°</div>
+  </div>
+
+  <div id="dash">
+    <div id="speed"><span id="spd">0</span><small>節 KN</small></div>
+    <div class="bars">
+      <div class="barrow"><span>油門</span><div class="bar"><i id="thr"></i></div></div>
+      <div class="barrow"><span>增壓</span><div class="bar nitro"><i id="nit"></i></div></div>
+      <div class="barrow"><span>主砲</span><div class="bar reload"><i id="rel"></i></div></div>
+    </div>
+    <div class="side"><div id="weatherLabel"></div><div id="aimInfo"></div></div>
+  </div>
+
+  <div id="toolbar">
+    <button data-act="cam" title="切換視角 (C)">視角</button>
+    <button data-act="weather" title="切換天氣 (T)">天氣</button>
+    <button data-act="time" title="快轉時間 (N)">時間</button>
+    <button data-act="sound" title="靜音 (M)" id="soundBtn">聲音</button>
+    <button data-act="reset" title="回到起點 (R)">重來</button>
+  </div>
+
+  <div id="toast"></div>
+  <div id="wrongWay" class="hidden">→ 下一個檢查點 <b id="nextDist">0</b> m</div>
+
+  <div id="touch" class="hidden">
+    <div id="stick"><div id="knob"></div></div>
+    <div id="tbtns">
+      <button id="tBoost">增壓</button>
+      <button id="tFire">開砲</button>
+    </div>
+  </div>
+</div>
+
+<div id="menu">
+  <div class="menuCard">
+    <div class="kicker">TIDEBREAKER · BATTLESHIP</div>
+    <h1>YAMATO<span>戰艦大和</span></h1>
+    <p class="sub">指揮史上最大的戰艦破浪前行：九門 46cm 主砲、<br/>層層塔樓、厚重慣性。日夜流轉，風暴將至。</p>
+    <div class="controls">
+      <div><kbd>W</kbd><kbd>S</kbd> 前進 / 倒車</div>
+      <div><kbd>A</kbd><kbd>D</kbd> 轉舵</div>
+      <div><kbd>滑鼠</kbd> 瞄準</div>
+      <div><kbd>左鍵</kbd><kbd>F</kbd> 主砲齊射</div>
+      <div><kbd>右鍵</kbd> 副砲</div>
+      <div><kbd>Shift</kbd> 鍋爐增壓</div>
+      <div><kbd>C</kbd> 視角 &nbsp;<kbd>H</kbd> 汽笛</div>
+      <div><kbd>T</kbd> 天氣 &nbsp;<kbd>N</kbd> 時間</div>
+      <div><kbd>R</kbd> 回起點 &nbsp;<kbd>P</kbd> 暫停</div>
+    </div>
+    <button id="startBtn">出擊 SET SAIL</button>
+    <div class="hint">穿過金色浮環開始計時 · 擊沉紅白標靶船 · 金色補給可回充增壓</div>
+  </div>
+</div>
+
+<div id="pause" class="hidden"><div>暫停 PAUSED<small>按 P 繼續</small></div></div>
+<div id="loading">載入大海中…</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
