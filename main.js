@@ -43,11 +43,14 @@ const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerH
 
 // ---------- waves (shared CPU / GPU) ----------
 const WAVES = [
-  [1, 0.3, 0.22, 90],
-  [0.8, 0.75, 0.17, 47],
-  [1, -0.45, 0.14, 26],
-  [0.3, 1, 0.1, 14],
-  [-0.5, 0.9, 0.08, 8],
+  [1, 0.25, 0.16, 118],
+  [0.9, 0.62, 0.135, 73],
+  [1, -0.38, 0.12, 44],
+  [0.55, 0.95, 0.09, 29.5],
+  [1, 0.07, 0.08, 19.3],
+  [-0.22, 1, 0.06, 13.1],
+  [0.86, -0.7, 0.05, 9.4],
+  [0.38, 0.47, 0.04, 6.7],
 ].map(([dx, dz, s, L]) => {
   const l = Math.hypot(dx, dz);
   const k = (2 * Math.PI) / L;
@@ -166,7 +169,23 @@ function puffTexture(seed) {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 const softTex = softTexture();
-const foamTex = puffTexture(7);
+const foamTex = (() => {
+  // white foam on transparent: alpha carries the lacy pattern
+  const s = 256, c = document.createElement('canvas'); c.width = c.height = s;
+  const g = c.getContext('2d'), r = mulberry32(7);
+  const base = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  base.addColorStop(0, 'rgba(255,255,255,0.45)'); base.addColorStop(0.5, 'rgba(255,255,255,0.25)'); base.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = base; g.fillRect(0, 0, s, s);
+  for (let i = 0; i < 1100; i++) {
+    const a = r() * Math.PI * 2, d = Math.sqrt(r()) * s * 0.46;
+    const fall = Math.pow(1 - d / (s * 0.48), 1.4);
+    const x = s / 2 + Math.cos(a) * d, y = s / 2 + Math.sin(a) * d, rad = 1.5 + r() * 6 * fall;
+    const grd = g.createRadialGradient(x, y, 0, x, y, rad);
+    grd.addColorStop(0, `rgba(255,255,255,${(0.35 + r() * 0.6) * fall})`); grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd; g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fill();
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
 const smokeTex = puffTexture(11);
 
 // ---------- shared GLSL ----------
@@ -175,6 +194,11 @@ float hash(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p+45.32); ret
 float hash3(vec3 p){ p = fract(p*0.3183099 + 0.1); p *= 17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
 float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
   return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
+// value noise + analytic gradient: vec3(value, d/dx, d/dy)
+vec3 noised(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f), du=6.0*f*(1.0-f);
+  float a=hash(i), b=hash(i+vec2(1,0)), c=hash(i+vec2(0,1)), d=hash(i+vec2(1,1));
+  float k=a-b-c+d;
+  return vec3(a+(b-a)*u.x+(c-a)*u.y+k*u.x*u.y, du*(vec2(b-a,c-a)+k*u.yx)); }
 float fbm(vec2 p){ float v=0.0, a=0.5; for(int i=0;i<5;i++){ v+=a*vnoise(p); p=p*2.03+vec2(1.7,9.2); a*=0.5; } return v; }
 `;
 
@@ -259,8 +283,8 @@ const oceanUniforms = {
   uHeadPos: { value: new THREE.Vector3() }, uHeadDir: { value: new THREE.Vector3(0, 0, 1) }, uHeadOn: { value: 0 },
 };
 const WAVE_GLSL = /* glsl */ `
-  uniform float uTime, uAmp; uniform vec4 uWaves[5]; uniform vec3 uCam;
-  float waveFade(vec4 w, float dist){ return w.w < 20.0 ? 1.0 - smoothstep(220.0, 620.0, dist) : 1.0; }
+  uniform float uTime, uAmp; uniform vec4 uWaves[8]; uniform vec3 uCam;
+  float waveFade(vec4 w, float dist){ return 1.0 - smoothstep(w.w * 12.0, w.w * 32.0, dist); }
 `;
 const oceanMat = new THREE.ShaderMaterial({
   uniforms: oceanUniforms,
@@ -271,7 +295,7 @@ const oceanMat = new THREE.ShaderMaterial({
       vec4 wp = modelMatrix * vec4(position, 1.0);
       vec2 p = wp.xz; float dist = length(p - uCam.xz);
       vec3 d = vec3(0.0);
-      for (int i = 0; i < 5; i++) {
+      for (int i = 0; i < 8; i++) {
         vec4 w = uWaves[i]; float k = 6.2831853 / w.w; float c = sqrt(9.8 / k);
         float a = w.z * uAmp / k * waveFade(w, dist);
         float f = k * (dot(w.xy, p) - c * uTime);
@@ -289,7 +313,7 @@ const oceanMat = new THREE.ShaderMaterial({
     void main(){
       float dist = length(vOrig - uCam.xz);
       vec3 T = vec3(1.0, 0.0, 0.0), B = vec3(0.0, 0.0, 1.0);
-      for (int i = 0; i < 5; i++) {
+      for (int i = 0; i < 8; i++) {
         vec4 w = uWaves[i]; float k = 6.2831853 / w.w; float c = sqrt(9.8 / k);
         float st = w.z * uAmp * waveFade(w, dist);
         float f = k * (dot(w.xy, vOrig) - c * uTime); float sf = sin(f), cf = cos(f);
@@ -298,16 +322,28 @@ const oceanMat = new THREE.ShaderMaterial({
       }
       vec3 n = normalize(cross(B, T));
       float jac = T.x * B.z - T.z * B.x;
-      float rf = 1.0 - smoothstep(80.0, 320.0, dist);
-      vec2 q = vWorld.xz * 0.45;
-      n.x += 0.05 * rf * (sin(q.x*2.3 + uTime*1.7 + sin(q.y*1.3)) + 0.6*sin(q.y*3.7 - uTime*2.1));
-      n.z += 0.05 * rf * (cos(q.y*2.1 - uTime*1.5 + sin(q.x*1.1)) + 0.6*cos(q.x*3.3 + uTime*1.9));
+      // small-scale chop: 5 octaves of rotated value noise, each scrolling with the wind
+      // and faded out before it gets smaller than a pixel (no moire / shimmering)
+      vec2 g = vec2(0.0); float amp = 1.0, fr = 0.085;
+      mat2 M = mat2(1.0, 0.0, 0.0, 1.0);
+      const mat2 ROT = mat2(0.80, -0.60, 0.60, 0.80);
+      for (int i = 0; i < 5; i++) {
+        float fi = float(i);
+        vec2 drift = vec2(0.9, 0.3 - 0.25 * fi) * uTime * (0.9 + 0.35 * fi);
+        vec2 qp = M * (vOrig + drift) * fr + vec2(fi * 17.3, fi * 5.1);
+        vec3 nd = noised(qp);
+        float lod = 1.0 - smoothstep(18.0 / fr, 60.0 / fr, dist);
+        g += (nd.yz * M) * fr * amp * lod;
+        amp *= 0.58; fr *= 1.93; M = ROT * M;
+      }
+      n.xz -= g * (0.55 + 0.35 * uAmp);
       n = normalize(n);
 
       vec3 v = normalize(cameraPosition - vWorld);
       float fres = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
       vec3 r = reflect(-v, n); r.y = abs(r.y);
-      vec3 skyc = mix(uHor, uTop, pow(clamp(r.y, 0.0, 1.0), 0.55));
+      vec3 skyc = mix(uHor, uTop, pow(clamp(r.y, 0.0, 1.0), 0.45)) * 0.92;
+      fres = min(fres, 0.82);
 
       float shallow = 0.0, shore = 0.0;
       for (int i = 0; i < ${MAX_ISL}; i++) {
@@ -325,18 +361,22 @@ const oceanMat = new THREE.ShaderMaterial({
       }
 
       float hgt = clamp(vH / max(uMaxH, 0.01) * 0.5 + 0.5, 0.0, 1.0);
-      vec3 body = mix(uDeep, uShallow, clamp(shallow*0.85 + hgt*0.25, 0.0, 1.0));
-      float sss = pow(max(dot(v, -vec3(uSunDir.x, 0.0, uSunDir.z)), 0.0), 3.0) * hgt * hgt;
-      body += uShallow * sss * 0.6;
+      vec3 body = mix(uDeep, uShallow, clamp(shallow*0.85 + hgt*0.12, 0.0, 1.0));
+      // light through thin wave crests, seen against the sun
+      float sss = pow(max(dot(v, -vec3(uSunDir.x, 0.0, uSunDir.z)), 0.0), 4.0) * smoothstep(0.55, 1.0, hgt);
+      body += uShallow * sss * 0.45;
       body *= uLight;
       vec3 col = mix(body, skyc, fres);
 
       vec3 hv = normalize(uSunDir + v);
-      float spec = pow(max(dot(n, hv), 0.0), 900.0) * 6.0 + pow(max(dot(n, hv), 0.0), 90.0) * 0.18;
+      float shin = mix(700.0, 160.0, smoothstep(50.0, 700.0, dist));
+      float spec = pow(max(dot(n, hv), 0.0), shin) * mix(4.0, 1.4, smoothstep(50.0, 700.0, dist)) + pow(max(dot(n, hv), 0.0), 60.0) * 0.12;
       col += uSpecCol * spec * smoothstep(-0.05, 0.05, uSunDir.y + 0.1);
 
-      float fn = vnoise(vWorld.xz * 0.5 + vec2(uTime*0.3, -uTime*0.2)) * vnoise(vWorld.xz*0.14 - uTime*0.1);
-      float foam = smoothstep(0.78, 0.35, jac) * smoothstep(0.15, 0.5, fn) * 1.4;
+      vec2 wq = vec2(dot(vOrig, vec2(0.97, 0.24)), dot(vOrig, vec2(-0.24, 0.97)));
+      float fn = vnoise(wq * vec2(0.22, 0.6) + vec2(uTime * 0.25, 0.0)) * 0.6 + vnoise(wq * vec2(0.7, 1.6) - vec2(uTime * 0.4, uTime * 0.1)) * 0.4;
+      float crest = smoothstep(0.9, 0.45, jac) * smoothstep(0.6, 0.95, hgt);
+      float foam = crest * smoothstep(0.3, 0.8, fn) * 0.9;
       foam += shore * smoothstep(0.1, 0.55, fn + 0.25);
       foam = clamp(foam, 0.0, 1.0) * (1.0 - smoothstep(400.0, 1100.0, dist));
       col = mix(col, vec3(0.92, 0.96, 1.0) * (uLight*0.9 + 0.1), foam * 0.85);
@@ -784,7 +824,18 @@ const targets = [];
 const WAKE_N = 1100;
 const wakeMesh = new THREE.InstancedMesh(
   (() => { const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-Math.PI / 2); return g; })(),
-  new THREE.MeshBasicMaterial({ map: foamTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: true, polygonOffset: true, polygonOffsetFactor: -2 }),
+  (() => {
+    // instance colour r = opacity, g = brightness (so overlapping decals settle at white, never blow out)
+    const m = new THREE.MeshBasicMaterial({ map: foamTex, transparent: true, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    m.onBeforeCompile = (sh) => {
+      sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `
+        #include <color_fragment>
+        #if defined( USE_INSTANCING_COLOR ) || defined( USE_COLOR )
+          diffuseColor = vec4(vec3(0.93, 0.96, 1.0) * vColor.g, sampledDiffuseColor.a * vColor.r);
+        #endif`);
+    };
+    return m;
+  })(),
   WAKE_N
 );
 wakeMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -1158,7 +1209,7 @@ const PAL = {
   dayTop: C('#1f6fd1'), dayHor: C('#bcdcf2'), setTop: C('#2d3f78'), setHor: C('#ff9e5e'),
   nightTop: C('#02050d'), nightHor: C('#0a1830'), stormTop: C('#353c44'), stormHor: C('#69737c'),
   sunDay: C('#fff3dc'), sunSet: C('#ff8a3d'), moon: C('#9fb8ff'),
-  deep: C('#03263d'), shallow: C('#1aa7a6'), stormDeep: C('#1b2b33'), stormShallow: C('#3d6b6c'),
+  deep: C('#05263f'), shallow: C('#1d7f8a'), stormDeep: C('#17262e'), stormShallow: C('#355e62'),
 };
 const sunDir = new THREE.Vector3();
 const tmpC = new THREE.Color(), tmpC2 = new THREE.Color(), tmpV = new THREE.Vector3();
@@ -2302,8 +2353,9 @@ function updateParticles(dt) {
     _q.setFromAxisAngle(_up, w.rot + w.age * 0.1);
     _s.set(s, 1, s);
     wakeMesh.setMatrixAt(i, _m.compose(_p, _q, _s));
-    const a = w.a * (1 - t) * (1 - t) * Math.min(1, w.age * 5) * (0.3 + 0.7 * dayF) * 0.45;
-    wakeMesh.setColorAt(i, _c.setRGB(a, a, a));
+    const camD = Math.hypot(w.x - camera.position.x, w.z - camera.position.z);
+    const a = w.a * (1 - t) * (1 - t) * Math.min(1, w.age * 5) * 0.75 * (1 - smooth(350, 900, camD));
+    wakeMesh.setColorAt(i, _c.setRGB(a, 0.15 + 0.8 * dayF, 0));
   }
   wakeMesh.instanceMatrix.needsUpdate = true;
   wakeMesh.instanceColor.needsUpdate = true;
