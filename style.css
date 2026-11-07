@@ -108,8 +108,64 @@ kbd { display: inline-block; min-width: 26px; padding: 2px 7px; margin-right: 4p
 #tbtns button { width: 72px; height: 72px; border-radius: 50%; padding: 0; font-size: 15px; }
 #tbtns button.on { border-color: var(--hot); background: rgba(255, 106, 61, 0.35); }
 
+#battle { position: fixed; top: 16px; left: 16px; padding: 12px 16px; min-width: 230px; }
+#battle .label { font-size: 12px; letter-spacing: 0.12em; color: var(--dim); }
+#battle .label b { color: var(--gold); font-size: 15px; }
+#battle .big { font-size: 38px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; margin-bottom: 6px; color: var(--gold); }
+#battle .row { display: flex; justify-content: space-between; gap: 16px; font-size: 14px; color: var(--dim); }
+#battle .row b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.hull { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; color: var(--dim); font-family: "Noto Sans TC", sans-serif; }
+.hull .bar { flex: 1; width: auto; height: 10px; }
+.hull b { color: var(--ink); min-width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
+.bar.hp i { background: linear-gradient(90deg, #62f0a8, #39e1ff); transition: width 0.2s; }
+
+#hurt { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(255, 30, 0, 0) 45%, rgba(255, 30, 0, 0.55) 100%); z-index: 1; }
+#warn {
+  position: fixed; top: 64px; left: 50%; transform: translateX(-50%); padding: 8px 16px; border-radius: 10px;
+  font: 700 16px "Noto Sans TC", sans-serif; color: #fff; background: rgba(200, 30, 20, 0.7); border: 1px solid #ff8a6a;
+  animation: blink 0.5s steps(2) infinite; white-space: nowrap;
+}
+@keyframes blink { 50% { opacity: 0.45; } }
+
+#markers { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.mk { position: absolute; left: 0; top: 0; width: 0; height: 0; color: #ff6a55; font: 600 12px "Rajdhani", "Noto Sans TC", sans-serif; }
+.mk .tag { position: absolute; left: 0; bottom: 6px; transform: translateX(-50%); white-space: nowrap; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8); }
+.mk .hpb { position: absolute; left: -22px; bottom: 0; width: 44px; height: 4px; border-radius: 3px; background: rgba(0, 0, 0, 0.45); overflow: hidden; }
+.mk .hpb i { display: block; height: 100%; background: #ff4a3d; }
+.mk .arr { display: none; position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; }
+.mk .arr::before { content: ""; position: absolute; left: 3px; top: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 14px solid currentColor; }
+.mk.off .arr { display: block; }
+.mk.off .hpb { display: none; }
+.mk.off .tag { bottom: auto; top: 12px; }
+.mk.off .nm { display: none; }
+.mk.boss { color: #ff3df0; }
+.mk.boss .hpb { width: 80px; left: -40px; height: 6px; }
+.mk.boss .hpb i { background: #ff3df0; }
+.mk.lock { color: var(--gold); }
+.mk.lock .hpb i { background: var(--gold); }
+
+#over { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(3, 14, 26, 0.6); padding: 16px; z-index: 5; }
+.overCard { text-align: center; background: var(--glass); border: 1px solid var(--edge); border-radius: 18px; padding: 26px 30px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.overCard h2 { font: 700 44px "Noto Sans TC", sans-serif; margin: 6px 0 16px; color: var(--hot); letter-spacing: 0.1em; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 26px; margin-bottom: 22px; font-family: "Noto Sans TC", sans-serif; }
+.stats div { display: flex; flex-direction: column; }
+.stats span { font-size: 12px; color: var(--dim); }
+.stats b { font: 700 30px "Rajdhani", sans-serif; color: var(--gold); }
+.stats small { font-size: 12px; color: var(--dim); }
+.btns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: inherit; }
+.overCard .btns { justify-content: center; }
+#retryBtn, #raceBtn, #menuBtn, #startBtn { font: 700 20px "Rajdhani", "Noto Sans TC", sans-serif; letter-spacing: 0.1em; cursor: pointer; padding: 13px 28px; border-radius: 14px; transition: transform 0.15s; }
+#retryBtn { color: #022033; border: none; background: linear-gradient(90deg, #ffcf4a, #ff6a3d); box-shadow: 0 10px 40px rgba(255, 106, 61, 0.4); }
+.ghost { color: var(--ink); background: rgba(255, 255, 255, 0.06); border: 1px solid var(--edge); }
+#retryBtn:hover, #raceBtn:hover, #menuBtn:hover { transform: translateY(-2px); }
+
 @media (max-width: 760px) {
-  #race { top: 10px; left: 10px; padding: 8px 12px; min-width: 150px; }
+  #race, #battle { top: 10px; left: 10px; padding: 8px 12px; min-width: 150px; }
+  #battle .big { font-size: 26px; }
+  #battle .row { font-size: 12px; }
+  #warn { font-size: 13px; top: auto; bottom: 150px; }
+  .overCard h2 { font-size: 32px; }
+  #retryBtn, #raceBtn, #menuBtn, #startBtn { font-size: 16px; padding: 11px 18px; }
   #race .big { font-size: 26px; }
   #race .row { font-size: 12px; }
   #mapWrap { top: 10px; right: 10px; padding: 5px; }

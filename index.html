@@ -22,7 +22,18 @@
 <body>
 <canvas id="c"></canvas>
 
+<div id="hurt"></div>
 <div id="hud" class="hidden">
+  <div id="markers"></div>
+  <div id="battle" class="panel hidden">
+    <div class="label">第 <b id="waveNum">-</b> 波 · 分數 SCORE</div>
+    <div id="score" class="big">0</div>
+    <div class="row"><span>敵艦 ENEMY</span><b id="enemyLeft">0</b></div>
+    <div class="row"><span>連擊 COMBO</span><b id="combo">x1</b></div>
+    <div class="row"><span>最高 BEST</span><b id="battleBest">0</b></div>
+    <div class="hull"><span>艦體</span><div class="bar hp"><i id="hp"></i></div><b id="hpTxt">100</b></div>
+  </div>
+  <div id="warn" class="hidden">⚠ 魚雷接近 TORPEDO — 轉舵閃避或用副砲擊毀</div>
   <div id="race" class="panel">
     <div class="label">單圈時間 LAP</div>
     <div id="lapTime" class="big">--:--.--</div>
@@ -71,20 +82,35 @@
   <div class="menuCard">
     <div class="kicker">TIDEBREAKER · BATTLESHIP</div>
     <h1>YAMATO<span>戰艦大和</span></h1>
-    <p class="sub">指揮史上最大的戰艦破浪前行：九門 46cm 主砲、<br/>層層塔樓、厚重慣性。日夜流轉，風暴將至。</p>
+    <p class="sub">敵艦隊一波接一波來襲。驅逐艦會射魚雷、巡洋艦砲火覆蓋，<br/>每五波還有一艘敵旗艦。看海面上的紅圈閃避砲彈，用九門 46cm 主砲反擊！</p>
     <div class="controls">
       <div><kbd>W</kbd><kbd>S</kbd> 前進 / 倒車</div>
       <div><kbd>A</kbd><kbd>D</kbd> 轉舵</div>
-      <div><kbd>滑鼠</kbd> 瞄準</div>
+      <div><kbd>滑鼠</kbd> 瞄準（靠近敵艦自動鎖定）</div>
       <div><kbd>左鍵</kbd><kbd>F</kbd> 主砲齊射</div>
-      <div><kbd>右鍵</kbd> 副砲</div>
+      <div><kbd>右鍵</kbd> 副砲（可擊毀魚雷）</div>
       <div><kbd>Shift</kbd> 鍋爐增壓</div>
       <div><kbd>C</kbd> 視角 &nbsp;<kbd>H</kbd> 汽笛</div>
       <div><kbd>T</kbd> 天氣 &nbsp;<kbd>N</kbd> 時間</div>
-      <div><kbd>R</kbd> 回起點 &nbsp;<kbd>P</kbd> 暫停</div>
+      <div><kbd>R</kbd> 重來 &nbsp;<kbd>P</kbd> 暫停</div>
     </div>
-    <button id="startBtn">出擊 SET SAIL</button>
-    <div class="hint">穿過金色浮環開始計時 · 擊沉紅白標靶船 · 金色補給可回充增壓</div>
+    <div class="btns"><button id="startBtn">海戰出擊 BATTLE</button><button id="raceBtn" class="ghost">計時賽 TIME TRIAL</button></div>
+    <div class="hint">紅圈＝敵彈落點 · 白色氣泡航跡＝魚雷 · 金色補給可修理艦體、回充增壓 · 衝撞也能擊沉驅逐艦</div>
+  </div>
+</div>
+
+<div id="over" class="hidden">
+  <div class="menuCard overCard">
+    <div class="kicker">BATTLE REPORT · 戰鬥報告</div>
+    <h2>大和 沉沒</h2>
+    <div class="stats">
+      <div><span>分數</span><b id="overScore">0</b></div>
+      <div><span>撐到第</span><b id="overWave">0</b><small>波</small></div>
+      <div><span>擊沉</span><b id="overKills">0</b><small>艘</small></div>
+      <div><span>最高紀錄</span><b id="overBest">0</b></div>
+    </div>
+    <div class="btns"><button id="retryBtn">再戰 RETRY</button><button id="menuBtn" class="ghost">選單 MENU</button></div>
+    <div class="hint">按 Enter 或 R 立即再戰</div>
   </div>
 </div>
 
