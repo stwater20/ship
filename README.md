@@ -1,4 +1,6 @@
-# 戰艦大和 Yamato — Tidebreaker
+# ⚓ 戰艦大和 Yamato — Tidebreaker｜3D 網頁海戰遊戲
+
+**▶ 立即遊玩：<https://ship.sectools.tw/>**　｜　台灣環島觀光模式：<https://ship.sectools.tw/?tour>
 
 瀏覽器 3D 戰艦遊戲（Three.js，純靜態檔案，可直接部署到 GitHub Pages）。
 
@@ -38,3 +40,7 @@ python3 -m http.server 8000
 開啟 http://localhost:8000
 
 網址參數：`?tour`（台灣觀光）、`?play`（海戰）、`?play=race`（計時賽）、`&cam=3&tod=18&weather=2`
+
+---
+
+由 [SecTools.tw](https://sectools.tw/) 製作與維護，更多免費線上工具與小遊戲：[sectools.tw/tools](https://sectools.tw/tools)
