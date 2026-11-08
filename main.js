@@ -688,7 +688,7 @@ const lighthouse = (() => {
 const SHIP_LEN = 72;
 const ship = new THREE.Group();
 const parts = { turrets: [], muzzles: [] };
-{
+if (!TOUR) {
   const M = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0, ...extra });
   const gray = M('#8e979f'), grayD = M('#737b83'), grayL = M('#a4acb3');
   const deckM = M('#a68b5f', { roughness: 0.9, metalness: 0 });
@@ -875,6 +875,102 @@ const parts = { turrets: [], muzzles: [] };
   spot.position.set(0, 17.2, 5.2); spot.target.position.set(0, -6, 120);
   ship.add(spot, spot.target); parts.searchlight = spot;
   ship.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+} else {
+  // ---------- sightseeing cruise ship (tour world) ----------
+  const M = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0, ...extra });
+  const white = M('#f3f5f7'), whiteD = M('#dfe4e8'), navy = M('#1d3557', { roughness: 0.7 }), teal = M('#18a3a8');
+  const glass = M('#22344a', { roughness: 0.2, emissive: '#ffcf80', emissiveIntensity: 0.12 });
+  const wood = M('#c9a77a', { roughness: 0.85 }), orange = M('#ff8a3d'), dark = M('#2a2e33');
+  const add = (geo, mat, x, y, z, parent = ship) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
+  const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+  const cyl = (rt, rb, h, s = 14) => new THREE.CylinderGeometry(rt, rb, h, s);
+
+  const outline = new THREE.Shape();
+  outline.moveTo(0, 36);
+  outline.quadraticCurveTo(4.2, 26, 5.3, 12);
+  outline.lineTo(5.4, -20);
+  outline.quadraticCurveTo(5.3, -33, 3.2, -35.5);
+  outline.lineTo(-3.2, -35.5);
+  outline.quadraticCurveTo(-5.3, -33, -5.4, -20);
+  outline.lineTo(-5.3, 12);
+  outline.quadraticCurveTo(-4.2, 26, 0, 36);
+  const sheer = (z) => (z > 10 ? Math.pow((z - 10) / 26, 2) * 1.8 : 0);
+  const ext = (depth, y0, mat, squeeze = false) => {
+    const g = new THREE.ExtrudeGeometry(outline, { depth, bevelEnabled: false, curveSegments: 18 });
+    g.rotateX(Math.PI / 2); g.translate(0, y0 + depth, 0);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      if (!squeeze && p.getY(i) > y0 + depth - 0.01) p.setY(i, p.getY(i) + sheer(p.getZ(i)));
+      if (squeeze && p.getY(i) < y0 + 0.01) { p.setX(i, p.getX(i) * 0.7); }
+    }
+    g.computeVertexNormals();
+    return add(g, mat, 0, 0, 0);
+  };
+  ext(3.0, -0.1, navy, true);            // below the waterline
+  ext(1.6, 2.9, white);                   // topsides
+  const band = ext(0.5, 2.6, teal);       // teal stripe
+  band.scale.set(1.01, 1, 1.005);
+  // open deck
+  {
+    const g = new THREE.ExtrudeGeometry(outline, { depth: 0.2, bevelEnabled: false, curveSegments: 18 });
+    g.rotateX(Math.PI / 2); g.translate(0, 4.7, 0); g.scale(0.97, 1, 0.98);
+    add(g, wood, 0, 0, 0);
+  }
+  // stacked passenger decks with window bands
+  const deck = (w, h, d, y, z, win = true) => {
+    add(box(w, h, d), white, 0, y, z);
+    if (win) add(box(w + 0.06, h * 0.38, d - 1.2), glass, 0, y + h * 0.08, z);
+    add(box(w + 0.6, 0.18, d + 0.6), whiteD, 0, y + h / 2 + 0.09, z); // overhang
+  };
+  deck(10, 3, 48, 6.3, -5);
+  deck(9, 2.8, 40, 9.2, -7);
+  deck(7.6, 2.6, 28, 11.9, -5);
+  // bridge with wraparound windows
+  add(box(10.4, 2.4, 5), white, 0, 14.4, 6.5);
+  add(box(10.46, 1.0, 5.06), glass, 0, 14.6, 6.5);
+  add(box(10.8, 0.2, 5.6), whiteD, 0, 15.7, 6.5);
+  // mast + radar + pennant
+  add(cyl(0.12, 0.16, 7, 6), dark, 0, 19.2, 5.5);
+  const radar = add(box(3.2, 0.25, 0.5), dark, 0, 18.2, 5.5); parts.radar = radar;
+  // funnel (company-free teal/white livery)
+  const funnel = add(cyl(1.6, 2.1, 5.5, 18), teal, 0, 15.8, -14);
+  funnel.scale.set(0.75, 1, 1.3); funnel.rotation.x = -0.18;
+  const fband = add(cyl(1.65, 1.75, 1.0, 18), white, 0, 16.5, -14.2); fband.scale.set(0.76, 1, 1.31); fband.rotation.x = -0.18;
+  parts.funnelTop = new THREE.Object3D(); parts.funnelTop.position.set(0, 18.8, -14.6); ship.add(parts.funnelTop);
+  // lifeboats
+  for (const sx of [-1, 1]) for (const z of [-16, -6, 4]) {
+    const b = add(new THREE.CapsuleGeometry(0.75, 3.2, 3, 8), orange, sx * 4.9, 11.4, z);
+    b.rotation.x = Math.PI / 2;
+  }
+  // sun deck at the stern: pool + parasols
+  add(box(5, 0.12, 6), M('#4fc3e8', { roughness: 0.1, emissive: '#1a6f8a', emissiveIntensity: 0.3 }), 0, 4.88, -27);
+  ['#ff5a5f', '#ffcf4a', '#3ddc97', '#4ea8ff'].forEach((c, i) => {
+    const x = (i % 2 ? 1 : -1) * 3.6, z = -23 - Math.floor(i / 2) * 7;
+    add(cyl(0.05, 0.05, 2.2, 5), dark, x, 5.9, z);
+    add(new THREE.ConeGeometry(1.4, 0.6, 10), M(c), x, 7.1, z);
+  });
+  // railings
+  for (const sx of [-1, 1]) add(box(0.08, 0.6, 62), whiteD, sx * 5.0, 5.15, -2);
+  // pennant (plain colours, no emblem)
+  {
+    const fg = new THREE.PlaneGeometry(2.6, 1.2, 8, 1); fg.translate(-1.3, 0, 0);
+    const p = fg.attributes.position;
+    for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) * (0.2 + 0.8 * (1 + p.getX(i) / 2.6)));
+    const flag = new THREE.Mesh(fg, M('#18a3a8', { side: THREE.DoubleSide, roughness: 0.9 }));
+    flag.position.set(0, 22.2, 5.5); flag.rotation.y = Math.PI / 2;
+    ship.add(flag); parts.flag = flag;
+  }
+  // fireworks launch rack on the foredeck
+  add(box(3, 0.8, 2), dark, 0, 5.2, 24);
+  parts.launcher = new THREE.Object3D(); parts.launcher.position.set(0, 6, 24); ship.add(parts.launcher);
+  // nav lights + searchlight
+  const navMat = (c) => new THREE.SpriteMaterial({ map: softTex, color: c, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 });
+  parts.navGlow = [navMat('#ff4040'), navMat('#40ff80'), navMat('#ffffff')];
+  [[5.4, 14.5, 6.5], [-5.4, 14.5, 6.5], [0, 22.8, 5.5]].forEach((p, i) => { const s = new THREE.Sprite(parts.navGlow[i]); s.scale.setScalar(3); s.position.set(...p); ship.add(s); });
+  const spot = new THREE.SpotLight(0xfff1d0, 0, 500, 0.28, 0.5, 1.0);
+  spot.position.set(0, 15.8, 9.2); spot.target.position.set(0, -6, 120);
+  ship.add(spot, spot.target); parts.searchlight = spot;
+  parts.bridgeCam = new THREE.Vector3(0, 16.2, 9.4);
 }
 ship.rotation.order = 'YXZ';
 scene.add(ship);
@@ -1190,6 +1286,12 @@ const sfx = {
   hit() { this.burst(1.5, 700, 1.0); this.tone(55, 1.0, 0.9, 'sine', 0, 0.4); this.burst(0.35, 3000, 0.45, 'highpass'); },
   alarm() { [880, 660, 880].forEach((f, i) => this.tone(f, 0.16, 0.1, 'square', i * 0.18)); },
   launch(dist) { this.burst(0.5, 1200, clamp(0.35 - dist / 2500, 0.02, 0.35), 'bandpass', (dist / 340) * 0.5); },
+  fwLaunch(small) { this.tone(small ? 900 : 500, small ? 0.8 : 1.6, 0.05, 'sine', 0, small ? 2.2 : 3.2); this.burst(0.3, 1500, 0.15, 'bandpass'); },
+  fwBoom(dist, small) {
+    const d = (dist / 340) * 0.6, v = clamp((small ? 0.5 : 0.9) - dist / 2500, 0.05, 0.9);
+    this.burst(small ? 0.8 : 1.6, 260, v, 'lowpass', d); this.burst(0.25, 2500, v * 0.5, 'highpass', d);
+    for (let i = 0; i < (small ? 4 : 10); i++) this.burst(0.06, 3500 + Math.random() * 2000, v * 0.25, 'highpass', d + 0.35 + Math.random() * 1.0);
+  },
   thunder(delay) { this.burst(3.5, 160, 0.9, 'lowpass', delay); this.burst(1.2, 600, 0.3, 'lowpass', delay); },
   toggle() {
     this.muted = !this.muted; store.set('tb_muted', this.muted);
@@ -1339,9 +1441,19 @@ function backToMenu() {
   $('menu').classList.remove('hidden');
 }
 if (TOUR) {
-  document.title = '台灣環島 Yamato';
+  document.title = '台灣環島遊輪';
+  document.querySelector('#menu h1').innerHTML = 'CRUISE<span>台灣環島遊輪</span>';
+  document.querySelector('#menu .controls').innerHTML = [
+    ['<kbd>W</kbd><kbd>S</kbd>', '前進 / 倒車'], ['<kbd>A</kbd><kbd>D</kbd>', '轉舵'],
+    ['<kbd>滑鼠</kbd>', '選擇煙火位置'], ['<kbd>左鍵</kbd><kbd>F</kbd>', '放大煙火'],
+    ['<kbd>右鍵</kbd>', '小煙火'], ['<kbd>Shift</kbd>', '加速'],
+    ['<kbd>L</kbd>', '景點地圖'], ['<kbd>C</kbd>', '視角 &nbsp;<kbd>H</kbd> 汽笛'],
+    ['<kbd>T</kbd>', '天氣 &nbsp;<kbd>N</kbd> 時間'], ['<kbd>R</kbd>', '回基隆 &nbsp;<kbd>P</kbd> 暫停'],
+  ].map(([k, t]) => `<div>${k} ${t}</div>`).join('');
+  document.querySelectorAll('.barrow span')[2].textContent = '煙火';
+  $('tFire').textContent = '煙火';
   $('kicker').textContent = 'TAIWAN COAST TOUR · 台灣環島';
-  $('menuSub').innerHTML = '駕駛大和號環繞台灣：基隆出港，沿著海岸線拜訪 22 個海岸與離島景點。<br/>開到金色光柱就算抵達，可以打開官方觀光網站和 Google 地圖。';
+  $('menuSub').innerHTML = '搭乘觀光遊輪環繞台灣：從基隆出港，沿著海岸線拜訪 22 個海岸與離島景點。<br/>開到金色光柱就算抵達，可以打開官方觀光網站和 Google 地圖，晚上記得放煙火！';
   $('startBtn').textContent = '出航 SET SAIL';
   $('raceBtn').textContent = '海戰模式 BATTLE';
   $('tourBtn').textContent = '計時賽 TIME TRIAL';
@@ -1618,6 +1730,7 @@ function updateAim(dt) {
   let dist = Math.hypot(dx, dz);
   if (dist > MAX_RANGE) { dx *= MAX_RANGE / dist; dz *= MAX_RANGE / dist; dist = MAX_RANGE; }
   if (dist < 80) { const l = dist || 1; dx = dx / l * 80; dz = dz / l * 80; dist = 80; }
+  if (TOUR && dist > 350) { dx *= 350 / dist; dz *= 350 / dist; dist = 350; }
   aim.set(B.x + dx, 0, B.z + dz);
   // lock-on: snap to the nearest enemy near the cursor and lead it
   const lockE = findLock(aim, dist);
@@ -1627,7 +1740,7 @@ function updateAim(dt) {
     dist = Math.hypot(aim.x - B.x, aim.z - B.z);
   }
   aim.y = waterHeight(aim.x, aim.z) + 0.3;
-  reticle.material.color.set(lockE ? '#ffcf4a' : '#ff5a3d');
+  reticle.material.color.set(lockE || TOUR ? '#ffcf4a' : '#ff5a3d');
   reticle.visible = state.camMode !== 3;
   reticle.position.copy(aim);
   const sc = 1 + dist / 300;
@@ -1657,6 +1770,7 @@ function updateAim(dt) {
     if (t.main && t.ready) readyCount++;
   }
   state.mainReady = readyCount;
+  if (TOUR) { $('aimInfo').textContent = `🎆 煙火 · ${Math.round(dist)} m`; return; }
   $('aimInfo').textContent = `${lockE ? '🎯 鎖定 ' + lockE.T.name + ' · ' : ''}${Math.round(dist)} m · ${readyCount}/3 砲塔`;
 }
 function fireTurret(t) {
@@ -1691,6 +1805,7 @@ function fireTurret(t) {
 }
 function fireMain() {
   if (state.mode !== 'play' || BT.over || state.reload < 1 || !aimValid) return;
+  if (TOUR) { state.reload = 0; launchFirework(false); return; }
   const ready = parts.turrets.filter((t) => t.main && t.ready);
   if (!ready.length) { if (!state._warned) { toast('砲塔尚未就位', '把準星移到砲塔射界內', 'hot', 900); state._warned = true; setTimeout(() => (state._warned = false), 1500); } return; }
   state.reload = 0;
@@ -1699,6 +1814,7 @@ function fireMain() {
 }
 function fireSecondary() {
   if (state.mode !== 'play' || BT.over || state.reload2 < 1 || !aimValid) return;
+  if (TOUR) { state.reload2 = 0; launchFirework(true); return; }
   const ready = parts.turrets.filter((t) => !t.main && t.ready);
   if (!ready.length) return;
   state.reload2 = 0;
@@ -1706,8 +1822,8 @@ function fireSecondary() {
   sfx.cannon(false);
 }
 function updateShells(dt) {
-  state.reload = Math.min(1, state.reload + dt / 3.0);
-  state.reload2 = Math.min(1, state.reload2 + dt / 1.2);
+  state.reload = Math.min(1, state.reload + dt / (TOUR ? 1.1 : 3.0));
+  state.reload2 = Math.min(1, state.reload2 + dt / (TOUR ? 0.45 : 1.2));
   for (const s of shells) {
     if (!s.alive) continue;
     s.t += dt;
@@ -2671,6 +2787,105 @@ function drawTourMinimap(ctx, proj) {
   });
 }
 
+// ---------- fireworks (tour mode "guns") ----------
+const FW_N = 5000;
+const fwPos = new Float32Array(FW_N * 3), fwCol = new Float32Array(FW_N * 3);
+const fwGeo = new THREE.BufferGeometry();
+fwGeo.setAttribute('position', new THREE.BufferAttribute(fwPos, 3).setUsage(THREE.DynamicDrawUsage));
+fwGeo.setAttribute('color', new THREE.BufferAttribute(fwCol, 3).setUsage(THREE.DynamicDrawUsage));
+const fwPoints = new THREE.Points(fwGeo, new THREE.PointsMaterial({ size: 6, map: softTex, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true, fog: false }));
+fwPoints.frustumCulled = false;
+scene.add(fwPoints);
+const fwP = [];
+for (let i = 0; i < FW_N; i++) { fwP.push({ x: 0, y: -999, z: 0, vx: 0, vy: 0, vz: 0, age: 1, life: 1, r: 1, g: 1, b: 1, drag: 1, grav: 3, tw: 0 }); fwPos[i * 3 + 1] = -999; }
+let fwIdx = 0;
+function spawnFW(x, y, z, vx, vy, vz, life, c, drag = 1.2, grav = 3, tw = 0) {
+  const p = fwP[fwIdx]; fwIdx = (fwIdx + 1) % FW_N;
+  Object.assign(p, { x, y, z, vx, vy, vz, age: 0, life, r: c.r, g: c.g, b: c.b, drag, grav, tw });
+}
+const FW_COLORS = ['#ff4d6d', '#ffd166', '#06d6a0', '#4cc9f0', '#b388ff', '#ff9f1c', '#f15bb5', '#ffffff', '#9ef01a'].map((h) => new THREE.Color(h));
+const fwColor = () => FW_COLORS[Math.floor(rng() * FW_COLORS.length)];
+const rockets = [];
+let fwShow = 0, fwCam = 0; // camera tilts up while a show is on
+const _fwc = new THREE.Color(), _right = new THREE.Vector3();
+function launchFirework(small) {
+  const lp = parts.launcher || parts.funnelTop;
+  lp.getWorldPosition(_p);
+  const h = small ? rand(38, 52) : rand(70, 95);
+  fwShow = 6;
+  const tx = aim.x + rand(-4, 4), tz = aim.z + rand(-4, 4);
+  const top = waterHeight(tx, tz) + h;
+  const g = 9.8, vy = Math.sqrt(2 * g * Math.max(10, top - _p.y)), T = vy / g;
+  rockets.push({ x: _p.x, y: _p.y, z: _p.z, vx: (tx - _p.x) / T, vy, vz: (tz - _p.z) / T, t: 0, T, small, c: fwColor() });
+  sfx.fwLaunch(small);
+  spawnSmoke(_p.x, _p.y, _p.z, 0, 2, 0, 1.5, 3, 1.2, 0.4, '#cfcac0');
+}
+function fwBurst(x, y, z, small, base) {
+  const kinds = small ? ['peony', 'ring', 'peony'] : ['peony', 'ring', 'willow', 'heart', 'double', 'peony'];
+  const kind = kinds[Math.floor(rng() * kinds.length)];
+  const n = small ? 110 : 300, sp = small ? 20 : 36;
+  const c2 = fwColor();
+  const dir = (s) => { const u = rand(-1, 1), a = rand(0, Math.PI * 2), r = Math.sqrt(1 - u * u); return [Math.cos(a) * r * s, u * s, Math.sin(a) * r * s]; };
+  if (kind === 'peony' || kind === 'double') {
+    for (let i = 0; i < n; i++) { const [vx, vy, vz] = dir(sp * rand(0.9, 1.05)); spawnFW(x, y, z, vx, vy, vz, rand(1.4, 2.0), base, 1.3, 3); }
+    if (kind === 'double') for (let i = 0; i < n * 0.5; i++) { const [vx, vy, vz] = dir(sp * 0.5 * rand(0.9, 1.05)); spawnFW(x, y, z, vx, vy, vz, rand(1.2, 1.6), c2, 1.3, 3, 1); }
+  } else if (kind === 'ring') {
+    // ring in a random tilted plane
+    const ax = new THREE.Vector3(rand(-1, 1), rand(-0.3, 1), rand(-1, 1)).normalize();
+    const u = new THREE.Vector3(1, 0, 0).cross(ax).normalize(), v = ax.clone().cross(u);
+    for (let i = 0; i < n * 0.7; i++) {
+      const a = (i / (n * 0.7)) * Math.PI * 2, s = sp * rand(0.97, 1.03);
+      spawnFW(x, y, z, (u.x * Math.cos(a) + v.x * Math.sin(a)) * s, (u.y * Math.cos(a) + v.y * Math.sin(a)) * s, (u.z * Math.cos(a) + v.z * Math.sin(a)) * s, rand(1.5, 1.9), base, 1.2, 2.5);
+    }
+    for (let i = 0; i < 30; i++) { const [vx, vy, vz] = dir(sp * 0.25); spawnFW(x, y, z, vx, vy, vz, 1.2, c2, 1.5, 2, 1); }
+  } else if (kind === 'willow') {
+    _fwc.set('#ffc85a');
+    for (let i = 0; i < n; i++) { const [vx, vy, vz] = dir(sp * rand(0.75, 1.0)); spawnFW(x, y, z, vx, vy, vz, rand(3.0, 4.2), _fwc, 1.6, 7, 1); }
+  } else if (kind === 'heart') {
+    // heart outline facing the camera
+    _right.setFromMatrixColumn(camera.matrixWorld, 0); _right.y = 0; _right.normalize();
+    _fwc.set(rng() < 0.5 ? '#ff4d6d' : '#f15bb5');
+    for (let i = 0; i < 160; i++) {
+      const t = (i / 160) * Math.PI * 2;
+      const hx = 16 * Math.pow(Math.sin(t), 3), hy = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+      const k = 2.1;
+      spawnFW(x, y, z, _right.x * hx * k, hy * k, _right.z * hx * k, rand(1.6, 2.0), _fwc, 1.4, 1.5);
+    }
+  }
+  flashLight.position.set(x, y, z); flashLight.color.copy(kind === 'heart' || kind === 'willow' ? _fwc : base); flashLight.intensity = Math.max(flashLight.intensity, small ? 3000 : 9000);
+  sfx.fwBoom(Math.hypot(x - camera.position.x, y - camera.position.y, z - camera.position.z), small);
+}
+function updateFireworks(dt) {
+  fwShow = Math.max(0, fwShow - dt);
+  fwCam = damp(fwCam, fwShow > 0 ? 1 : 0, 1.5, dt);
+  for (let i = rockets.length - 1; i >= 0; i--) {
+    const r = rockets[i];
+    r.t += dt;
+    r.vy -= 9.8 * dt;
+    r.x += r.vx * dt; r.y += r.vy * dt; r.z += r.vz * dt;
+    spawnFW(r.x, r.y, r.z, rand(-1, 1), rand(-2, 0), rand(-1, 1), 0.5, _fwc.set('#ffd8a0'), 2, 4, 1);
+    if (r.t >= r.T) { fwBurst(r.x, r.y, r.z, r.small, r.c); rockets.splice(i, 1); }
+  }
+  let any = false;
+  for (let i = 0; i < FW_N; i++) {
+    const p = fwP[i];
+    if (p.age >= p.life) { if (fwPos[i * 3 + 1] !== -999) fwPos[i * 3 + 1] = -999; continue; }
+    any = true;
+    p.age += dt;
+    const k = Math.exp(-p.drag * dt);
+    p.vx *= k; p.vy = p.vy * k - p.grav * dt; p.vz *= k;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    let f = Math.min(1, 1.8 * (1 - p.age / p.life));
+    if (p.tw && p.age > p.life * 0.4) f *= 0.4 + 0.6 * (Math.sin(p.age * 45 + i) > 0 ? 1 : 0.2);
+    f *= 0.55 + 0.45 * (1 - dayF);
+    fwPos[i * 3] = p.x; fwPos[i * 3 + 1] = p.y; fwPos[i * 3 + 2] = p.z;
+    fwCol[i * 3] = p.r * f; fwCol[i * 3 + 1] = p.g * f; fwCol[i * 3 + 2] = p.b * f;
+  }
+  fwPoints.visible = any || rockets.length > 0;
+  fwGeo.attributes.position.needsUpdate = true;
+  fwGeo.attributes.color.needsUpdate = true;
+}
+
 // ---------- race & pickups ----------
 function updateRace() {
   if (state.mode !== 'play') return;
@@ -2874,12 +3089,13 @@ function desiredCam(out, look) {
     const swing = mouse.has && !isTouch ? -mouse.x * 0.9 : 0;
     const cs = Math.cos(swing), sn = Math.sin(swing);
     const vx = fx * cs - fz * sn, vz = fz * cs + fx * sn;
-    out.set(B.x - vx * dist, B.y + h, B.z - vz * dist);
-    look.set(B.x + vx * 45, B.y + 6, B.z + vz * 45);
+    const up = TOUR ? fwCam : 0;
+    out.set(B.x - vx * dist, B.y + h - up * h * 0.3, B.z - vz * dist);
+    look.set(B.x + vx * (45 + up * 50), B.y + 6 + up * 30, B.z + vz * (45 + up * 50));
     return 2.2;
   }
   if (mode === 2) {
-    _p.set(0, 19.6, 4.9).applyEuler(ship.rotation).add(ship.position); out.copy(_p);
+    (parts.bridgeCam ? _p.copy(parts.bridgeCam) : _p.set(0, 19.6, 4.9)).applyEuler(ship.rotation).add(ship.position); out.copy(_p);
     const swing = mouse.has && !isTouch ? -mouse.x * 1.4 : 0;
     _p.set(Math.sin(-swing) * 100, 15 + (mouse.has ? mouse.y * 30 : 0), Math.cos(swing) * 100).applyEuler(ship.rotation).add(ship.position);
     look.copy(_p);
@@ -3004,6 +3220,7 @@ function frame() {
     updateShells(dt);
     updateBattle(dt);
     updateTour(dt);
+    if (TOUR) updateFireworks(dt);
     updateParticles(dt);
     updateHUD(dt);
   }
@@ -3037,7 +3254,7 @@ window.__game = {
       if (each) each();
       time += dt;
       updateEnvironment(dt); updateShip(dt); updateRace(); updateWorldObjects(dt); updateCamera(dt);
-      updateAim(dt); updateShells(dt); updateBattle(dt); updateTour(dt); updateParticles(dt); updateHUD(dt);
+      updateAim(dt); updateShells(dt); updateBattle(dt); updateTour(dt); if (TOUR) updateFireworks(dt); updateParticles(dt); updateHUD(dt);
     }
   },
 };
