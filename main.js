@@ -26,6 +26,11 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } },
 };
 const $ = (id) => document.getElementById(id);
+// ?tour → Taiwan coast-tour world (built at load time)
+const TOUR = new URLSearchParams(location.search).has('tour');
+// lon/lat → world units (x = east, -z = north); 8 units per km
+const GEO = { lon0: 120.95, lat0: 23.7, S: 8 };
+const geo = (lon, lat) => ({ x: (lon - GEO.lon0) * 101.9 * GEO.S, z: -(lat - GEO.lat0) * 110.8 * GEO.S });
 
 // ---------- renderer / scene ----------
 const canvas = $('c');
@@ -103,11 +108,23 @@ function distToCourse(x, z) {
   for (let i = 0; i < N_GATES; i++) d = Math.min(d, distToSeg(x, z, gates[i], gates[(i + 1) % N_GATES]));
   return d;
 }
-const START = { x: gates[0].x - gates[0].tx * 160, z: gates[0].z - gates[0].tz * 160, yaw: gates[0].yaw };
+const START = TOUR
+  ? { ...geo(121.735, 25.225), yaw: -Math.PI / 2 } // off Keelung, heading west
+  : { x: gates[0].x - gates[0].tx * 160, z: gates[0].z - gates[0].tz * 160, yaw: gates[0].yaw };
 
-const WORLD_X = 1900, WORLD_Z = 1600;
+const WORLD_X = TOUR ? 1500 : 1900, WORLD_Z = TOUR ? 1800 : 1600;
 const islands = [];
-{
+if (TOUR) {
+  // outlying islands (sizes exaggerated so they read at ship scale)
+  const add = (lon, lat, r, h, name) => { const p = geo(lon, lat); islands.push({ x: p.x, z: p.z, r, h, s1: rand(0, 6), s2: rand(0, 6), s3: rand(0, 6), name }); };
+  add(119.60, 23.57, 55, 14, '澎湖本島');
+  add(119.60, 23.68, 34, 10, '白沙');
+  add(119.47, 23.60, 30, 12, '西嶼');
+  add(120.37, 22.34, 22, 10, '小琉球');
+  add(121.49, 22.66, 30, 22, '綠島');
+  add(121.55, 22.05, 38, 40, '蘭嶼');
+  add(121.951, 24.843, 22, 32, '龜山島');
+} else {
   const g = gates[3];
   const ol = Math.hypot(g.x, g.z);
   islands.push({ x: g.x + (g.x / ol) * 120, z: g.z + (g.z / ol) * 120, r: 26, h: 8, s1: 1, s2: 2, s3: 3, lighthouse: true });
@@ -126,7 +143,7 @@ function islandR(is, a) {
   return is.r * (1 + 0.12 * Math.sin(3 * a + is.s1) + 0.07 * Math.sin(5 * a + is.s2) + 0.04 * Math.sin(9 * a + is.s3));
 }
 const rocks = [];
-for (let i = 0; i < 12; i++) {
+for (let i = 0; i < (TOUR ? 0 : 12); i++) {
   for (let t = 0; t < 300; t++) {
     const x = rand(-WORLD_X, WORLD_X), z = rand(-WORLD_Z, WORLD_Z), r = rand(4, 10);
     if (distToCourse(x, z) < 70 || Math.hypot(x - START.x, z - START.z) < 150) continue;
@@ -139,10 +156,81 @@ function freeSpot(margin = 20) {
     const x = rand(-WORLD_X * 0.9, WORLD_X * 0.9), z = rand(-WORLD_Z * 0.9, WORLD_Z * 0.9);
     if (islands.some((o) => Math.hypot(o.x - x, o.z - z) < o.r * 1.3 + margin)) continue;
     if (rocks.some((o) => Math.hypot(o.x - x, o.z - z) < o.r + margin)) continue;
+    if (TOUR && landSD(x, z) > -margin - 15) continue;
     return { x, z };
   }
   return { x: 0, z: 600 };
 }
+
+// ---------- Taiwan main island (tour world) ----------
+// coastline, clockwise from Fuguijiao (north tip)
+const TW_COAST = [
+  [121.537, 25.297], [121.64, 25.23], [121.74, 25.15], [121.84, 25.13], [121.92, 25.13], [122.00, 25.01],
+  [121.90, 24.95], [121.84, 24.86], [121.83, 24.72], [121.87, 24.59], [121.80, 24.45], [121.73, 24.30],
+  [121.68, 24.20], [121.62, 23.98], [121.57, 23.78], [121.52, 23.60], [121.51, 23.48], [121.45, 23.30],
+  [121.38, 23.10], [121.27, 22.92], [121.16, 22.76], [121.00, 22.60], [120.90, 22.34], [120.88, 22.20],
+  [120.86, 22.03], [120.85, 21.90], [120.80, 21.94], [120.73, 21.92], [120.74, 21.97], [120.71, 22.07],
+  [120.65, 22.26], [120.59, 22.37], [120.45, 22.46], [120.40, 22.50], [120.27, 22.61], [120.22, 22.75],
+  [120.18, 22.90], [120.15, 23.00], [120.09, 23.15], [120.11, 23.27], [120.15, 23.46], [120.19, 23.70],
+  [120.25, 23.80], [120.32, 23.93], [120.40, 24.10], [120.50, 24.27], [120.56, 24.40], [120.63, 24.45],
+  [120.75, 24.62], [120.85, 24.70], [120.93, 24.85], [121.00, 24.95], [121.10, 25.05], [121.20, 25.10],
+  [121.30, 25.13], [121.41, 25.18], [121.50, 25.28],
+].map(([lo, la]) => geo(lo, la));
+// Central Mountain Range spine: [lon, lat, relative height]
+const TW_RIDGE = [
+  [121.62, 24.82, 0.45], [121.33, 24.42, 0.95], [121.22, 23.95, 1], [120.98, 23.47, 1], [120.88, 22.95, 0.8], [120.84, 22.45, 0.55], [120.82, 22.02, 0.3],
+].map(([lo, la, w]) => ({ ...geo(lo, la), w }));
+const TW_BOX = (() => {
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const p of TW_COAST) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
+  return { x0: x0 - 60, x1: x1 + 60, z0: z0 - 60, z1: z1 + 60 };
+})();
+// signed distance to the coastline polygon: + inside (land), − at sea
+function polySD(x, z) {
+  let dmin = Infinity, inside = false;
+  for (let i = 0, j = TW_COAST.length - 1; i < TW_COAST.length; j = i++) {
+    const a = TW_COAST[j], b = TW_COAST[i];
+    dmin = Math.min(dmin, distToSeg(x, z, a, b));
+    if ((a.z > z) !== (b.z > z) && x < ((b.x - a.x) * (z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
+  }
+  return inside ? dmin : -dmin;
+}
+const coastWiggle = (x, z) => Math.sin(x * 0.031 + z * 0.012) * 5 + Math.sin(z * 0.057 - x * 0.02) * 3 + Math.sin(x * 0.11 + z * 0.09) * 1.5;
+function landSD(x, z) {
+  if (!TOUR) return -1e9;
+  if (x < TW_BOX.x0 || x > TW_BOX.x1 || z < TW_BOX.z0 || z > TW_BOX.z1) {
+    const dx = Math.max(TW_BOX.x0 - x, 0, x - TW_BOX.x1), dz = Math.max(TW_BOX.z0 - z, 0, z - TW_BOX.z1);
+    return -60 - Math.hypot(dx, dz);
+  }
+  return polySD(x, z) + coastWiggle(x, z);
+}
+function taiwanHeight(x, z, sd) {
+  if (sd <= 0) return Math.max(-14, sd * 0.9) - 0.6;
+  let rd = Infinity, w = 0;
+  for (let i = 0; i < TW_RIDGE.length - 1; i++) {
+    const a = TW_RIDGE[i], b = TW_RIDGE[i + 1];
+    const vx = b.x - a.x, vz = b.z - a.z;
+    const t = clamp(((x - a.x) * vx + (z - a.z) * vz) / (vx * vx + vz * vz), 0, 1);
+    const d = Math.hypot(x - (a.x + vx * t), z - (a.z + vz * t));
+    if (d < rd) { rd = d; w = lerp(a.w, b.w, t); }
+  }
+  const mtn = 140 * w * Math.exp(-(rd * rd) / (170 * 170)) * smooth(2, 90, sd);
+  const hill = (Math.sin(x * 0.023 + z * 0.007) * Math.sin(z * 0.019 - x * 0.011) + 0.35 * Math.sin(x * 0.061 + z * 0.047) + 0.15 * Math.sin(x * 0.13 - z * 0.11)) * (5 + mtn * 0.2) * smooth(6, 60, sd);
+  return smooth(0, 9, sd) * 2.4 + mtn + Math.max(-1.5, hill);
+}
+// baked signed-distance grid: drives the land mesh and the ocean's shallows / surf
+const TW_GRID = (() => {
+  if (!TOUR) return null;
+  const STEP = 6;
+  const nx = Math.ceil((TW_BOX.x1 - TW_BOX.x0) / STEP) + 1, nz = Math.ceil((TW_BOX.z1 - TW_BOX.z0) / STEP) + 1;
+  const sd = new Float32Array(nx * nz);
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) sd[j * nx + i] = landSD(TW_BOX.x0 + i * STEP, TW_BOX.z0 + j * STEP);
+  const tex8 = new Uint8Array(nx * nz);
+  for (let k = 0; k < sd.length; k++) tex8[k] = clamp(Math.round(((sd[k] + 64) / 128) * 255), 0, 255);
+  const tex = new THREE.DataTexture(tex8, nx, nz, THREE.RedFormat, THREE.UnsignedByteType);
+  tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
+  return { STEP, nx, nz, sd, tex, box: new THREE.Vector4(TW_BOX.x0 - STEP / 2, TW_BOX.z0 - STEP / 2, nx * STEP, nz * STEP) };
+})();
 
 // ---------- canvas textures ----------
 function softTexture(size = 64) {
@@ -281,6 +369,8 @@ const oceanUniforms = {
   uIsl: { value: islUniform }, uIslP: { value: islParam }, uIslN: { value: Math.min(MAX_ISL, islands.length + rocks.length) },
   uMaxH: { value: 1 }, uLight: { value: 1 },
   uHeadPos: { value: new THREE.Vector3() }, uHeadDir: { value: new THREE.Vector3(0, 0, 1) }, uHeadOn: { value: 0 },
+  uLand: { value: TW_GRID ? TW_GRID.tex : new THREE.DataTexture(new Uint8Array([0]), 1, 1, THREE.RedFormat) },
+  uLandBox: { value: TW_GRID ? TW_GRID.box : new THREE.Vector4(0, 0, 1, 1) }, uLandOn: { value: TW_GRID ? 1 : 0 },
 };
 const WAVE_GLSL = /* glsl */ `
   uniform float uTime, uAmp; uniform vec4 uWaves[8]; uniform vec3 uCam;
@@ -307,6 +397,7 @@ const oceanMat = new THREE.ShaderMaterial({
   fragmentShader: /* glsl */ `
     ${WAVE_GLSL}
     uniform vec3 uSunDir, uSpecCol, uTop, uHor, uDeep, uShallow, uFogCol, uHeadPos, uHeadDir;
+    uniform sampler2D uLand; uniform vec4 uLandBox; uniform float uLandOn;
     uniform float uFogDen, uMaxH, uLight, uHeadOn; uniform vec4 uIsl[${MAX_ISL}]; uniform vec4 uIslP[${MAX_ISL}]; uniform int uIslN;
     varying vec3 vWorld; varying vec2 vOrig; varying float vH;
     ${NOISE_GLSL}
@@ -358,6 +449,16 @@ const oceanMat = new THREE.ShaderMaterial({
         shallow = max(shallow, 1.0 - smoothstep(-2.0, is.w, dd));
         float nz = vnoise(vWorld.xz*0.25 + uTime*0.4);
         shore = max(shore, (1.0 - smoothstep(0.0, 8.0, dd + nz*5.0 - 1.5 + 2.0*sin(uTime*1.3 + l*0.35))) * step(-6.0, dd));
+      }
+
+      if (uLandOn > 0.5) {
+        vec2 luv = (vWorld.xz - uLandBox.xy) / uLandBox.zw;
+        if (luv.x > 0.0 && luv.x < 1.0 && luv.y > 0.0 && luv.y < 1.0) {
+          float dd = -(texture2D(uLand, luv).r * 2.0 - 1.0) * 64.0;
+          shallow = max(shallow, 1.0 - smoothstep(-2.0, 55.0, dd));
+          float nz = vnoise(vWorld.xz*0.25 + uTime*0.4);
+          shore = max(shore, (1.0 - smoothstep(0.0, 8.0, dd + nz*5.0 - 1.5 + 2.0*sin(uTime*1.3 + dd*0.35))) * step(-6.0, dd));
+        }
       }
 
       float hgt = clamp(vH / max(uMaxH, 0.01) * 0.5 + 0.5, 0.0, 1.0);
@@ -437,6 +538,7 @@ function terrainHeight(x, z) {
     if (f < 1.3) best = Math.max(best, islandSurface(is, f, a));
   }
   for (const r of rocks) if (Math.hypot(x - r.x, z - r.z) < r.r) best = Math.max(best, r.r * 0.8);
+  if (TOUR) { const sd = landSD(x, z); if (sd > -2) best = Math.max(best, taiwanHeight(x, z, sd)); }
   return best;
 }
 
@@ -518,8 +620,46 @@ if (trunkGeos.length) {
     m.castShadow = true; scene.add(m);
   }
 }
+if (TW_GRID) {
+  const { STEP, nx, nz, sd } = TW_GRID;
+  const pos = new Float32Array(nx * nz * 3), col = new Float32Array(nx * nz * 3);
+  const cSand = new THREE.Color('#e3cf98'), cWet = new THREE.Color('#a8926a'), cField = new THREE.Color('#7fb04e'),
+    cGrass = new THREE.Color('#4f9a3e'), cForest = new THREE.Color('#2f6f34'), cDeep = new THREE.Color('#255a2c'),
+    cRock = new THREE.Color('#8a877d'), cPeak = new THREE.Color('#b8b5ab'), c = new THREE.Color();
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+    const k = j * nx + i, x = TW_BOX.x0 + i * STEP, z = TW_BOX.z0 + j * STEP, d = sd[k];
+    const h = taiwanHeight(x, z, d);
+    pos.set([x, h, z], k * 3);
+    const n = Math.sin(x * 0.09 + z * 0.05) * Math.sin(z * 0.08 - x * 0.03);
+    if (h < -0.2) c.copy(cWet);
+    else if (d < 5 + n * 2) c.copy(cSand);
+    else if (h < 9) c.copy(cField).lerp(cGrass, 0.5 + n * 0.5);
+    else if (h < 45) c.copy(cGrass).lerp(cForest, smooth(9, 45, h) * (0.7 + 0.3 * n));
+    else if (h < 100) c.copy(cForest).lerp(cDeep, 0.5 + n * 0.5).lerp(cRock, smooth(80, 100, h) * 0.6);
+    else c.copy(cRock).lerp(cPeak, smooth(110, 140, h));
+    c.multiplyScalar(0.92 + 0.16 * Math.abs(Math.sin(x * 1.7 + z * 2.3)));
+    col.set([c.r, c.g, c.b], k * 3);
+  }
+  const idx = [];
+  for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    const a = j * nx + i, b = a + 1, c2 = a + nx, d = c2 + 1;
+    if (Math.max(sd[a], sd[b], sd[c2], sd[d]) < -16) continue;
+    idx.push(a, c2, b, b, c2, d);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
+  m.receiveShadow = true;
+  scene.add(m);
+}
+
 const lighthouse = (() => {
-  const is = islands.find((i) => i.lighthouse);
+  const is = TOUR
+    ? (() => { const p = geo(120.853, 21.905); return { x: p.x, z: p.z, h: terrainHeight(p.x, p.z) + 0.3 }; })() // Eluanbi
+    : islands.find((i) => i.lighthouse);
   const g = new THREE.Group();
   const white = new THREE.MeshStandardMaterial({ color: '#f4f1ea', roughness: 0.6 });
   const red = new THREE.MeshStandardMaterial({ color: '#c8322b', roughness: 0.6 });
@@ -1067,7 +1207,11 @@ window.addEventListener('keydown', (e) => {
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
   if (e.repeat) { keys[e.code] = true; return; }
   keys[e.code] = true;
-  if (state.mode === 'menu' && e.code === 'Enter') { startGame('battle'); return; }
+  if (state.mode === 'menu' && e.code === 'Enter') { startGame(TOUR ? 'tour' : 'battle'); return; }
+  if (state.game === 'tour' && state.mode === 'play') {
+    if (e.code === 'KeyL') { toggleTourList(); return; }
+    if (e.code === 'Escape' && closeTourUI()) return;
+  }
   if (BT.over && e.code === 'Enter') { startGame('battle'); return; }
   if (state.mode !== 'play' && state.mode !== 'pause') return;
   switch (e.code) {
@@ -1075,7 +1219,7 @@ window.addEventListener('keydown', (e) => {
     case 'KeyT': cycleWeather(); break;
     case 'KeyN': skipTime(); break;
     case 'KeyM': sfx.toggle(); break;
-    case 'KeyR': if (BT.on) { if (BT.over) startGame('battle'); } else resetShip(); break;
+    case 'KeyR': if (BT.on) { if (BT.over) startGame('battle'); } else if (state.game === 'race') resetShip(); break;
     case 'KeyH': sfx.horn(); break;
     case 'KeyP': case 'Escape': togglePause(); break;
   }
@@ -1125,7 +1269,7 @@ if (isTouch) {
 
 // ---------- game state ----------
 const state = {
-  mode: 'menu', game: 'battle', camMode: 0, weather: 0,
+  mode: 'menu', game: TOUR ? 'tour' : 'battle', camMode: 0, weather: 0,
   tod: 16.4, todSpeed: 24 / 480, skip: 0,
   storm: 0, cloud: 0.35, shake: 0, flash: 0, nextLightning: 6,
   coins: 0, kills: 0, reload: 1, reload2: 1,
@@ -1159,9 +1303,11 @@ function togglePause() {
 function setGameKind(kind) {
   state.game = kind;
   BT.on = kind === 'battle';
-  $('race').classList.toggle('hidden', BT.on);
-  $('battle').classList.toggle('hidden', !BT.on);
-  for (const t of targets) { t.alive = !BT.on; t.sink = 0; t.respawn = 0; t.grp.visible = !BT.on; t.grp.rotation.z = 0; }
+  $('race').classList.toggle('hidden', kind !== 'race');
+  $('battle').classList.toggle('hidden', kind !== 'battle');
+  $('tour').classList.toggle('hidden', kind !== 'tour');
+  if (kind !== 'tour') closeTourUI();
+  for (const t of targets) { const on = kind === 'race'; t.alive = on; t.sink = 0; t.respawn = 0; t.grp.visible = on; t.grp.rotation.z = 0; }
   if (!BT.on) clearBattle();
 }
 function startGame(kind = 'battle') {
@@ -1175,6 +1321,9 @@ function startGame(kind = 'battle') {
   if (BT.on) {
     resetBattle();
     toast('大和 出擊！', '敵艦隊來襲 · 準星靠近敵艦會自動鎖定並計算提前量', 'gold', 3200);
+  } else if (kind === 'tour') {
+    resetShip();
+    startTour();
   } else {
     resetShip();
     toast('大和 出擊！', '穿過金色浮環開始計時 · 滑鼠瞄準、左鍵開砲', 'gold', 2600);
@@ -1189,8 +1338,18 @@ function backToMenu() {
   $('touch').classList.add('hidden');
   $('menu').classList.remove('hidden');
 }
-$('startBtn').addEventListener('click', () => startGame('battle'));
-$('raceBtn').addEventListener('click', () => startGame('race'));
+if (TOUR) {
+  document.title = '台灣環島 Yamato';
+  $('kicker').textContent = 'TAIWAN COAST TOUR · 台灣環島';
+  $('menuSub').innerHTML = '駕駛大和號環繞台灣：基隆出港，沿著海岸線拜訪 22 個海岸與離島景點。<br/>開到金色光柱就算抵達，可以打開官方觀光網站和 Google 地圖。';
+  $('startBtn').textContent = '出航 SET SAIL';
+  $('raceBtn').textContent = '海戰模式 BATTLE';
+  $('tourBtn').textContent = '計時賽 TIME TRIAL';
+  $('menuHint').textContent = '按 L 打開全台景點地圖、點選下一站 · 集章紀錄會保存在這台裝置';
+}
+$('startBtn').addEventListener('click', () => startGame(TOUR ? 'tour' : 'battle'));
+$('raceBtn').addEventListener('click', () => (TOUR ? (location.href = location.pathname) : startGame('race')));
+$('tourBtn').addEventListener('click', () => (TOUR ? startGame('race') : (location.href = location.pathname + '?tour')));
 $('retryBtn').addEventListener('click', () => startGame('battle'));
 $('menuBtn').addEventListener('click', backToMenu);
 
@@ -1358,6 +1517,15 @@ function updateShip(dt) {
       solve(is.x, is.z, islandR(is, Math.atan2(dz, dx)) * 0.98 + rad);
     }
     for (const r of rocks) solve(r.x, r.z, r.r + rad);
+    if (TOUR) {
+      const sd = landSD(px, pz);
+      if (sd > -rad) {
+        // treat the coast locally as a huge circle whose edge passes through the contact point
+        const e = 2, gx = landSD(px + e, pz) - landSD(px - e, pz), gz = landSD(px, pz + e) - landSD(px, pz - e), gl = Math.hypot(gx, gz) || 1;
+        const nx = -gx / gl, nz = -gz / gl, pen = sd + rad, Rv = 400;
+        solve(px - nx * (Rv - pen), pz - nz * (Rv - pen), Rv);
+      }
+    }
     for (const t of targets) if (t.alive) solve(t.x, t.z, 6 + rad);
   }
 
@@ -2218,12 +2386,297 @@ function drawBattleMinimap(ctx, proj, sy, cyw) {
   void sy; void cyw;
 }
 
+// ---------- Taiwan coast tour ----------
+const SITE = {
+  necoast: 'https://www.necoast-nsa.gov.tw/',
+  northguan: 'https://www.northguan-nsa.gov.tw/',
+  eastcoast: 'https://www.eastcoast-nsa.gov.tw/',
+  swcoast: 'https://www.swcoast-nsa.gov.tw/',
+  penghu: 'https://www.penghu-nsa.gov.tw/',
+  dapeng: 'https://www.dbnsa.gov.tw/',
+  kenting: 'https://www.ktnp.gov.tw/',
+  taroko: 'https://www.taroko.gov.tw/',
+  keelung: 'https://tour.klcg.gov.tw/',
+  newtaipei: 'https://newtaipei.travel/',
+  hualien: 'https://tour-hualien.hl.gov.tw/',
+  kaohsiung: 'https://khh.travel/',
+  tainan: 'https://www.twtainan.net/',
+  taichung: 'https://travel.taichung.gov.tw/',
+};
+// id, name, region, lon, lat, description, official site, Google Maps query
+const TOUR_DATA = [
+  ['heping', '和平島公園', '基隆市', 121.763, 25.160, '海蝕平台、豆腐岩與萬人堆奇岩，還有面向大海的天然海水泳池。', SITE.keelung, '和平島地質公園'],
+  ['bitou', '鼻頭角步道', '新北市瑞芳區', 121.920, 25.128, '東北角最突出的岬角，步道沿著海崖而行，可眺望鼻頭角燈塔與太平洋。', SITE.necoast, '鼻頭角步道'],
+  ['sandiao', '三貂角燈塔', '新北市貢寮區', 122.003, 25.007, '臺灣本島最東端的燈塔，有「臺灣的眼睛」之稱。', SITE.necoast, '三貂角燈塔'],
+  ['waiao', '外澳・烏石港', '宜蘭縣頭城鎮', 121.842, 24.873, '衝浪勝地外澳沙灘與烏石港，也是出海賞鯨、登龜山島的港口。', SITE.necoast, '烏石港'],
+  ['guishan', '龜山島', '宜蘭縣頭城鎮', 121.951, 24.843, '宜蘭外海的火山島，形似浮龜，周邊海域是熱門的賞鯨地點。', SITE.necoast, '龜山島'],
+  ['qingshui', '清水斷崖', '花蓮縣秀林鄉', 121.689, 24.215, '太魯閣國家公園的海岸絕壁，高聳山壁直落太平洋。', SITE.taroko, '清水斷崖'],
+  ['qixing', '七星潭', '花蓮縣新城鄉', 121.627, 24.030, '新月形的礫石海灣，可以看日出、看星空，海水湛藍。', SITE.hualien, '七星潭風景區'],
+  ['shitiping', '石梯坪', '花蓮縣豐濱鄉', 121.512, 23.486, '海蝕平台與壺穴地形，岩岸潮間帶生態豐富。', SITE.eastcoast, '石梯坪'],
+  ['sanxiantai', '三仙台', '臺東縣成功鎮', 121.414, 23.123, '八拱跨海步橋連接離岸小島，是東海岸的代表地景。', SITE.eastcoast, '三仙台'],
+  ['lyudao', '綠島', '臺東縣綠島鄉', 121.490, 22.660, '朝日溫泉的海底溫泉、珊瑚礁浮潛與哈巴狗岩。', SITE.eastcoast, '綠島'],
+  ['lanyu', '蘭嶼', '臺東縣蘭嶼鄉', 121.550, 22.050, '達悟族的島嶼，有拼板舟、飛魚季與壯闊的海岸。', SITE.eastcoast, '蘭嶼'],
+  ['eluanbi', '鵝鑾鼻燈塔', '屏東縣恆春鎮', 120.853, 21.902, '臺灣最南端的燈塔，被譽為「東亞之光」。', SITE.kenting, '鵝鑾鼻燈塔'],
+  ['maobitou', '貓鼻頭', '屏東縣恆春鎮', 120.732, 21.922, '臺灣海峽與巴士海峽的分界點，珊瑚礁海蝕地形。', SITE.kenting, '貓鼻頭公園'],
+  ['xiaoliuqiu', '小琉球', '屏東縣琉球鄉', 120.370, 22.340, '臺灣唯一的珊瑚礁島，花瓶岩與海龜是招牌。', SITE.dapeng, '小琉球'],
+  ['cijin', '旗津', '高雄市旗津區', 120.265, 22.610, '搭渡輪抵達的海港小島，有海水浴場、燈塔與海產街。', SITE.kaohsiung, '旗津海岸公園'],
+  ['anping', '安平古堡', '臺南市安平區', 120.161, 23.001, '建於 1624 年的熱蘭遮城遺址，臺灣歷史的起點之一。', SITE.tainan, '安平古堡'],
+  ['qigu', '七股鹽山', '臺南市七股區', 120.100, 23.153, '白色鹽山與鹽田景觀，訴說臺灣曬鹽產業的歷史。', SITE.swcoast, '七股鹽山'],
+  ['penghu', '澎湖馬公', '澎湖縣馬公市', 119.565, 23.565, '玄武岩地形、天后宮與跨海大橋，夏天還有海上花火節。', SITE.penghu, '馬公市 澎湖'],
+  ['gaomei', '高美濕地', '臺中市清水區', 120.549, 24.312, '潮間帶濕地與成排風車，以夕陽倒影聞名。', SITE.taichung, '高美濕地'],
+  ['tamsui', '淡水漁人碼頭', '新北市淡水區', 121.410, 25.183, '情人橋與淡水河口夕陽，北臺灣經典的看海景點。', SITE.newtaipei, '淡水漁人碼頭'],
+  ['fugui', '富貴角燈塔', '新北市石門區', 121.536, 25.298, '臺灣本島最北端，八角形黑白相間的燈塔。', SITE.northguan, '富貴角燈塔'],
+  ['yehliu', '野柳地質公園', '新北市萬里區', 121.690, 25.206, '女王頭與蕈狀岩，世界知名的海蝕奇景。', SITE.northguan, '野柳地質公園'],
+];
+// coast incl. outlying islands: + on land
+function coastSD(x, z) {
+  let s = landSD(x, z);
+  for (const is of islands) {
+    const dx = x - is.x, dz = z - is.z;
+    s = Math.max(s, islandR(is, Math.atan2(dz, dx)) - Math.hypot(dx, dz));
+  }
+  return s;
+}
+// walk from the landmark out to sea so the marker floats in navigable water
+function seaPointFor(lm) {
+  let x = lm.x + 0.7, z = lm.z + 0.4;
+  for (let k = 0; k < 400; k++) {
+    const sd = coastSD(x, z);
+    if (sd < -48) break;
+    const e = 2, gx = coastSD(x + e, z) - coastSD(x - e, z), gz = coastSD(x, z + e) - coastSD(x, z - e), gl = Math.hypot(gx, gz);
+    if (gl < 1e-4) break;
+    x -= (gx / gl) * 5; z -= (gz / gl) * 5;
+  }
+  return { x, z };
+}
+const TOUR_SPOTS = TOUR ? TOUR_DATA.map(([id, name, region, lon, lat, desc, url, q]) => {
+  const lm = geo(lon, lat);
+  return { id, name, region, desc, url, maps: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`, lm, sea: seaPointFor(lm) };
+}) : [];
+const TOUR_KM = (u) => u / GEO.S;
+const tourState = {
+  target: 0, visited: new Set(store.get('tb_tour_visited', [])), here: -1, listOpen: false, done: false,
+};
+const tourTarget = () => TOUR_SPOTS[tourState.target];
+const saveVisited = () => store.set('tb_tour_visited', [...tourState.visited]);
+
+// 3D: a buoy + light beam at each stop
+const TOUR_RING_GEO = (() => { const g = new THREE.RingGeometry(0.97, 1, 64); g.rotateX(-Math.PI / 2); return g; })();
+const tourBeams = TOUR_SPOTS.map((sp) => {
+  const g = new THREE.Group();
+  const beamMat = new THREE.MeshBasicMaterial({ color: '#ffcf4a', transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(5, 9, 220, 20, 1, true), beamMat); beam.position.y = 110; g.add(beam);
+  const buoyMat = new THREE.MeshStandardMaterial({ color: '#ffcf4a', emissive: '#a86a00', emissiveIntensity: 0.6, roughness: 0.4 });
+  const buoy = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.4, 4, 12), buoyMat); buoy.position.y = 1.5; g.add(buoy);
+  const ringMat = new THREE.MeshBasicMaterial({ color: '#ffcf4a', transparent: true, opacity: 0.5, depthWrite: false, fog: false });
+  const ring = new THREE.Mesh(TOUR_RING_GEO, ringMat); ring.scale.setScalar(70); ring.position.y = 0.4; g.add(ring);
+  g.position.set(sp.sea.x, 0, sp.sea.z);
+  scene.add(g);
+  return { g, beam, beamMat, buoyMat, ringMat, ring };
+});
+// DOM labels
+const tourLabels = TOUR_SPOTS.map((sp) => {
+  const m = makeMarker();
+  m.el.classList.add('tl');
+  m.nm.textContent = sp.name;
+  return m;
+});
+
+function pickNextTarget(fromIdx = tourState.target) {
+  const from = TOUR_SPOTS[fromIdx]?.sea || { x: B.x, z: B.z };
+  let best = -1, bd = Infinity;
+  TOUR_SPOTS.forEach((sp, i) => {
+    if (tourState.visited.has(sp.id) || i === fromIdx) return;
+    const d = Math.hypot(sp.sea.x - from.x, sp.sea.z - from.z);
+    if (d < bd) { bd = d; best = i; }
+  });
+  return best;
+}
+function setTourTarget(i) {
+  if (i < 0 || i >= TOUR_SPOTS.length) return;
+  tourState.target = i;
+  const sp = TOUR_SPOTS[i];
+  toast(`目的地：${sp.name}`, `${sp.region} · ${TOUR_KM(Math.hypot(sp.sea.x - B.x, sp.sea.z - B.z)).toFixed(1)} km`, 'cyan', 1600);
+}
+function startTour() {
+  tourState.here = -1;
+  tourState.done = tourState.visited.size >= TOUR_SPOTS.length;
+  const n = pickNextTarget(-1);
+  tourState.target = n >= 0 ? n : 0;
+  toast('台灣環島 出航！', `第一站：${tourTarget().name} · 按 L 打開景點地圖`, 'gold', 3200);
+}
+function showSpot(i) {
+  const sp = TOUR_SPOTS[i];
+  tourState.here = i;
+  $('spotRegion').textContent = sp.region;
+  $('spotName').textContent = sp.name;
+  $('spotDesc').textContent = sp.desc;
+  $('spotWeb').href = sp.url;
+  $('spotMap').href = sp.maps;
+  const nx = pickNextTarget(i);
+  $('spotNext').textContent = nx >= 0 ? `下一站：${TOUR_SPOTS[nx].name} →` : '全部景點都去過了 🎉';
+  $('spotNext').disabled = nx < 0;
+  $('spotNext').dataset.next = nx;
+  $('spot').classList.remove('hidden');
+}
+function hideSpot() { $('spot').classList.add('hidden'); }
+function closeTourUI() {
+  let closed = false;
+  if (!$('spot').classList.contains('hidden')) { hideSpot(); closed = true; }
+  if (tourState.listOpen) { tourState.listOpen = false; $('tourList').classList.add('hidden'); closed = true; }
+  return closed;
+}
+$('spotClose').addEventListener('click', hideSpot);
+$('spotNext').addEventListener('click', () => { const n = +$('spotNext').dataset.next; if (n >= 0) setTourTarget(n); hideSpot(); });
+$('tourListBtn').addEventListener('click', (e) => { e.currentTarget.blur(); toggleTourList(); });
+$('tourListClose').addEventListener('click', () => toggleTourList(false));
+$('tourReset').addEventListener('click', () => {
+  if (!confirm('確定要清除所有集章紀錄嗎？')) return;
+  tourState.visited.clear(); saveVisited(); tourState.done = false; renderTourList();
+});
+
+// full-island map + list
+const tmap = $('tourMap'), tctx = tmap.getContext('2d');
+let tmapProj = null;
+function renderTourList() {
+  // map
+  const W = tmap.width, H = tmap.height;
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const p of [...TW_COAST, ...islands]) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
+  const pad = 30, sc = Math.min((W - pad * 2) / (x1 - x0), (H - pad * 2) / (z1 - z0));
+  const ox = (W - (x1 - x0) * sc) / 2, oz = (H - (z1 - z0) * sc) / 2;
+  const pr = (x, z) => [ox + (x - x0) * sc, oz + (z - z0) * sc];
+  tmapProj = { pr, sc };
+  tctx.clearRect(0, 0, W, H);
+  tctx.fillStyle = '#0b3550'; tctx.fillRect(0, 0, W, H);
+  tctx.fillStyle = '#8fb36b'; tctx.beginPath();
+  TW_COAST.forEach((p, i) => { const [x, y] = pr(p.x, p.z); i ? tctx.lineTo(x, y) : tctx.moveTo(x, y); });
+  tctx.closePath(); tctx.fill();
+  for (const is of islands) { const [x, y] = pr(is.x, is.z); tctx.beginPath(); tctx.arc(x, y, Math.max(2.5, is.r * sc), 0, Math.PI * 2); tctx.fill(); }
+  TOUR_SPOTS.forEach((sp, i) => {
+    const [x, y] = pr(sp.sea.x, sp.sea.z);
+    const v = tourState.visited.has(sp.id), t = i === tourState.target;
+    tctx.fillStyle = t ? '#ffcf4a' : v ? '#62f0a8' : '#ffffff';
+    tctx.beginPath(); tctx.arc(x, y, t ? 7 : 5, 0, Math.PI * 2); tctx.fill();
+    tctx.strokeStyle = 'rgba(0,0,0,0.5)'; tctx.lineWidth = 1.5; tctx.stroke();
+  });
+  const [sx, sy] = pr(B.x, B.z);
+  tctx.save(); tctx.translate(sx, sy); tctx.rotate(Math.PI - B.yaw);
+  tctx.fillStyle = '#ff6a3d'; tctx.beginPath(); tctx.moveTo(0, -9); tctx.lineTo(5, 6); tctx.lineTo(-5, 6); tctx.closePath(); tctx.fill();
+  tctx.restore();
+  // list
+  const ul = $('tourItems');
+  ul.innerHTML = '';
+  TOUR_SPOTS.forEach((sp, i) => {
+    const li = document.createElement('button');
+    const v = tourState.visited.has(sp.id);
+    li.className = 'ti' + (v ? ' v' : '') + (i === tourState.target ? ' t' : '');
+    const d = TOUR_KM(Math.hypot(sp.sea.x - B.x, sp.sea.z - B.z));
+    li.innerHTML = `<span class="st">${v ? '✓' : i + 1}</span><span class="tn"><b></b><small></small></span><span class="td">${d.toFixed(0)} km</span>`;
+    li.querySelector('b').textContent = sp.name;
+    li.querySelector('small').textContent = sp.region;
+    li.addEventListener('click', () => { setTourTarget(i); toggleTourList(false); });
+    ul.appendChild(li);
+  });
+  $('tourListCount').textContent = `${tourState.visited.size} / ${TOUR_SPOTS.length}`;
+}
+tmap.addEventListener('click', (e) => {
+  if (!tmapProj) return;
+  const r = tmap.getBoundingClientRect();
+  const mx = ((e.clientX - r.left) / r.width) * tmap.width, my = ((e.clientY - r.top) / r.height) * tmap.height;
+  let best = -1, bd = 22;
+  TOUR_SPOTS.forEach((sp, i) => { const [x, y] = tmapProj.pr(sp.sea.x, sp.sea.z); const d = Math.hypot(x - mx, y - my); if (d < bd) { bd = d; best = i; } });
+  if (best >= 0) { setTourTarget(best); toggleTourList(false); }
+});
+function toggleTourList(force) {
+  tourState.listOpen = force ?? !tourState.listOpen;
+  $('tourList').classList.toggle('hidden', !tourState.listOpen);
+  if (tourState.listOpen) renderTourList();
+}
+
+function updateTour(dt) {
+  if (!TOUR) return;
+  const active = state.game === 'tour' && state.mode === 'play';
+  const W = window.innerWidth, H = window.innerHeight;
+  TOUR_SPOTS.forEach((sp, i) => {
+    const b = tourBeams[i], v = tourState.visited.has(sp.id), t = i === tourState.target && active;
+    const col = t ? '#ffcf4a' : v ? '#62f0a8' : '#9fe8ff';
+    b.beamMat.color.set(col); b.ringMat.color.set(col); b.buoyMat.color.set(col);
+    const camNear = smooth(60, 260, Math.hypot(sp.sea.x - camera.position.x, sp.sea.z - camera.position.z));
+    b.beamMat.opacity = (t ? 0.22 + Math.sin(time * 3) * 0.05 : v ? 0.06 : 0.1) * (0.25 + 0.75 * camNear);
+    b.ringMat.opacity = t ? 0.45 : 0.18;
+    b.ring.scale.setScalar(70 + (t ? Math.sin(time * 2) * 4 : 0));
+    b.g.position.y = waterHeight(sp.sea.x, sp.sea.z);
+    // label
+    const m = tourLabels[i];
+    const d = Math.hypot(sp.sea.x - B.x, sp.sea.z - B.z);
+    if (!active || (!t && d > 1400)) { m.el.style.display = 'none'; return; }
+    _mv.set(sp.sea.x, b.g.position.y + 26, sp.sea.z).project(camera);
+    let x = _mv.x, y = _mv.y;
+    const behind = _mv.z > 1;
+    if (behind) { x = -x; y = -y; }
+    const on = !behind && Math.abs(x) < 0.94 && Math.abs(y) < 0.9;
+    if (!on && !t) { m.el.style.display = 'none'; return; }
+    m.el.style.display = '';
+    if (!on) {
+      const k = Math.max(Math.abs(x) / 0.9, Math.abs(y) / 0.82, 1e-3); x /= k; y /= k;
+      if (behind && Math.abs(y) < 0.5) y = -0.82;
+      m.arr.style.transform = `rotate(${Math.atan2(x, y)}rad)`;
+    }
+    m.el.classList.toggle('off', !on);
+    m.el.classList.toggle('lock', t);
+    m.el.classList.toggle('v', v && !t);
+    m.el.style.transform = `translate(${((x + 1) / 2) * W}px, ${((1 - y) / 2) * H}px)`;
+    m.ds.textContent = `${v ? '✓ ' : ''}${TOUR_KM(d).toFixed(1)} km`;
+  });
+  if (!active) return;
+
+  // arrival
+  let near = -1, nd = Infinity;
+  TOUR_SPOTS.forEach((sp, i) => { const d = Math.hypot(sp.sea.x - B.x, sp.sea.z - B.z); if (d < nd) { nd = d; near = i; } });
+  if (nd < 75 && tourState.here !== near) {
+    const sp = TOUR_SPOTS[near];
+    const first = !tourState.visited.has(sp.id);
+    if (first) {
+      tourState.visited.add(sp.id); saveVisited();
+      sfx.lap();
+      toast(`抵達 ${sp.name}！`, `集章 ${tourState.visited.size} / ${TOUR_SPOTS.length}`, 'gold', 2400);
+      for (let k = 0; k < 40; k++) spawnSpray(sp.sea.x, waterHeight(sp.sea.x, sp.sea.z) + 2, sp.sea.z, rand(-8, 8), rand(6, 16), rand(-8, 8), rand(0.8, 1.6), 1, 0.85, 0.3);
+    } else { sfx.gate(); }
+    showSpot(near);
+    if (near === tourState.target) { const n = pickNextTarget(near); if (n >= 0) tourState.target = n; }
+    if (!tourState.done && tourState.visited.size >= TOUR_SPOTS.length) {
+      tourState.done = true;
+      setTimeout(() => toast('環島完成！🎉', `${TOUR_SPOTS.length} 個景點全部到齊`, 'gold', 4000), 2600);
+    }
+  } else if (tourState.here >= 0 && nd > 180) {
+    tourState.here = -1; hideSpot();
+  }
+
+  // HUD
+  const tg = tourTarget();
+  const td = Math.hypot(tg.sea.x - B.x, tg.sea.z - B.z);
+  $('tourCount').textContent = `${tourState.visited.size}/${TOUR_SPOTS.length}`;
+  $('tourTarget').textContent = tg.name;
+  $('tourDist').textContent = `${TOUR_KM(td).toFixed(1)} km`;
+  $('tourRegion').textContent = tg.region;
+  if (tourState.listOpen && Math.floor(time * 2) !== Math.floor((time - dt) * 2)) renderTourList();
+}
+function drawTourMinimap(ctx, proj) {
+  TOUR_SPOTS.forEach((sp, i) => {
+    const [x, y] = proj(sp.sea.x, sp.sea.z);
+    const v = tourState.visited.has(sp.id), t = i === tourState.target;
+    ctx.fillStyle = t ? '#ffcf4a' : v ? '#62f0a8' : '#ffffff';
+    ctx.beginPath(); ctx.arc(x, y, t ? 5 : 3, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
 // ---------- race & pickups ----------
 function updateRace() {
   if (state.mode !== 'play') return;
   const R = state.race;
   const g = gates[R.next];
-  if (!BT.on && Math.hypot(B.x - g.x, B.z - g.z) < GATE_R + 2) {
+  if (state.game === 'race' && Math.hypot(B.x - g.x, B.z - g.z) < GATE_R + 2) {
     if (R.next === 0) {
       if (R.started) {
         const lt = time - R.startT;
@@ -2260,7 +2713,7 @@ function updateWorldObjects(dt) {
     const g = gates[i];
     gm.grp.position.y = waterHeight(g.x, g.z) - 0.8;
     gm.grp.rotation.z = Math.sin(time * 0.9 + i) * 0.03;
-    gm.grp.visible = !BT.on;
+    gm.grp.visible = state.game === 'race';
     const isNext = i === R.next && state.mode === 'play';
     gm.mat.emissiveIntensity = damp(gm.mat.emissiveIntensity, isNext ? 1.6 + Math.sin(time * 6) * 0.4 : 0.15, 6, dt);
     gm.beamMat.opacity = damp(gm.beamMat.opacity, isNext ? 0.2 : 0, 4, dt);
@@ -2276,7 +2729,7 @@ function updateWorldObjects(dt) {
     c.m.rotation.y = time * 1.8 + c.phase;
   }
   for (const t of targets) {
-    if (BT.on) { t.grp.visible = false; continue; }
+    if (state.game !== 'race') { t.grp.visible = false; continue; }
     if (!t.alive) {
       t.sink += dt;
       if (t.sink < 6) {
@@ -2294,13 +2747,13 @@ function updateWorldObjects(dt) {
     t.grp.rotation.set(Math.sin(time + t.yaw) * 0.05, t.yaw + time * 0.02, Math.cos(time * 0.8 + t.yaw) * 0.06);
   }
   // arrow to next gate
-  const g = gates[R.next];
+  const g = state.game === 'tour' && tourTarget() ? tourTarget().sea : gates[R.next];
   const dx = g.x - B.x, dz = g.z - B.z;
-  arrow.visible = state.mode === 'play' && state.camMode !== 2 && !BT.on;
+  arrow.visible = state.mode === 'play' && state.camMode !== 2 && state.game !== 'battle';
   arrow.position.set(B.x, B.y + 32 + Math.sin(time * 3) * 0.5, B.z);
   arrow.rotation.y = Math.atan2(dx, dz);
-  arrow.material.color.set(R.next === 0 ? '#ffcf4a' : '#39e1ff');
-  $('wrongWay').classList.toggle('hidden', state.mode !== 'play' || BT.on);
+  arrow.material.color.set(R.next === 0 || state.game === 'tour' ? '#ffcf4a' : '#39e1ff');
+  $('wrongWay').classList.toggle('hidden', state.mode !== 'play' || state.game !== 'race');
   $('nextDist').textContent = Math.round(Math.hypot(dx, dz));
 
   // dolphins riding the bow wave
@@ -2317,7 +2770,7 @@ function updateWorldObjects(dt) {
     const rel = (B.x - pod.x) * pod.dx + (B.z - pod.z) * pod.dz + 40;
     pod.speed = damp(pod.speed, clamp(B.speed + rel * 0.08, 7, 28), 0.5, dt);
     pod.x += pod.dx * pod.speed * dt; pod.z += pod.dz * pod.speed * dt;
-    const blocked = islands.some((o) => Math.hypot(o.x - pod.x, o.z - pod.z) < o.r * 1.4 + 10);
+    const blocked = islands.some((o) => Math.hypot(o.x - pod.x, o.z - pod.z) < o.r * 1.4 + 10) || landSD(pod.x, pod.z) > -15;
     for (const m of pod.members) {
       const px = pod.x - pod.dz * m.lat + pod.dx * m.fwd, pz = pod.z + pod.dx * m.lat + pod.dz * m.fwd;
       const ph = pod.t * 1.7 + m.phase, s = Math.sin(ph);
@@ -2495,7 +2948,12 @@ function updateHUD(dt) {
   const grd = mctx.createRadialGradient(cx, cy, 10, cx, cy, W / 2);
   grd.addColorStop(0, 'rgba(20,90,130,0.85)'); grd.addColorStop(1, 'rgba(5,30,50,0.9)');
   mctx.fillStyle = grd; mctx.fillRect(0, 0, W, W);
-  if (!BT.on) {
+  if (TOUR) {
+    mctx.fillStyle = '#9fbf7a'; mctx.beginPath();
+    TW_COAST.forEach((p, i) => { const [x, y] = proj(p.x, p.z); i ? mctx.lineTo(x, y) : mctx.moveTo(x, y); });
+    mctx.closePath(); mctx.fill();
+  }
+  if (state.game === 'race') {
     mctx.strokeStyle = 'rgba(57,225,255,0.35)'; mctx.lineWidth = 2; mctx.setLineDash([4, 4]);
     mctx.beginPath();
     gates.forEach((g, i) => { const [x, y] = proj(g.x, g.z); i ? mctx.lineTo(x, y) : mctx.moveTo(x, y); });
@@ -2509,7 +2967,8 @@ function updateHUD(dt) {
   for (const c of coins) { if (!c.alive) continue; const [x, y] = proj(c.x, c.z); mctx.fillRect(x - 1.5, y - 1.5, 3, 3); }
   mctx.fillStyle = '#ff4a3d';
   for (const t of targets) { if (!t.alive) continue; const [x, y] = proj(t.x, t.z); mctx.beginPath(); mctx.moveTo(x, y - 4); mctx.lineTo(x + 3.5, y + 3); mctx.lineTo(x - 3.5, y + 3); mctx.fill(); }
-  if (BT.on) drawBattleMinimap(mctx, proj, sy, cyw);
+  if (state.game === 'battle') drawBattleMinimap(mctx, proj, sy, cyw);
+  else if (state.game === 'tour') drawTourMinimap(mctx, proj);
   else gates.forEach((g, i) => {
     const [x, y] = proj(g.x, g.z);
     const next = i === R.next;
@@ -2544,6 +3003,7 @@ function frame() {
     updateAim(dt);
     updateShells(dt);
     updateBattle(dt);
+    updateTour(dt);
     updateParticles(dt);
     updateHUD(dt);
   }
@@ -2569,7 +3029,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && sta
 
 // debug hook for automated checks
 window.__game = {
-  state, B, BT, enemies, torps, eshells, keys, mouse, camera, startGame, fireMain, fireSecondary,
+  state, B, BT, TOUR, get tour() { return TOUR_SPOTS; }, landSD, enemies, torps, eshells, keys, mouse, camera, startGame, fireMain, fireSecondary,
   get time() { return time; },
   // advance the simulation without rendering (each(): optional per-step callback)
   sim(sec, each, dt = 1 / 30) {
@@ -2577,7 +3037,7 @@ window.__game = {
       if (each) each();
       time += dt;
       updateEnvironment(dt); updateShip(dt); updateRace(); updateWorldObjects(dt); updateCamera(dt);
-      updateAim(dt); updateShells(dt); updateBattle(dt); updateParticles(dt); updateHUD(dt);
+      updateAim(dt); updateShells(dt); updateBattle(dt); updateTour(dt); updateParticles(dt); updateHUD(dt);
     }
   },
 };
@@ -2589,7 +3049,7 @@ B.y = waterHeight(B.x, B.z) - 0.4;
   const q = new URLSearchParams(location.search);
   if (q.has('tod')) state.tod = clamp(parseFloat(q.get('tod')) || 0, 0, 23.99);
   if (q.has('weather')) { state.weather = clamp(parseInt(q.get('weather'), 10) || 0, 0, 2); const W = WEATHERS[state.weather]; waveAmp = W.amp; state.cloud = W.cloud; state.storm = W.storm; }
-  if (q.has('play')) startGame(q.get('play') === 'race' ? 'race' : 'battle');
+  if (q.has('play')) startGame(TOUR ? 'tour' : q.get('play') === 'race' ? 'race' : 'battle');
   if (q.has('cam')) state.camMode = clamp(parseInt(q.get('cam'), 10) || 0, 0, 3);
 }
 updateEnvironment(0);

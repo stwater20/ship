@@ -159,7 +159,69 @@ kbd { display: inline-block; min-width: 26px; padding: 2px 7px; margin-right: 4p
 .ghost { color: var(--ink); background: rgba(255, 255, 255, 0.06); border: 1px solid var(--edge); }
 #retryBtn:hover, #raceBtn:hover, #menuBtn:hover { transform: translateY(-2px); }
 
+#tour { position: fixed; top: 16px; left: 16px; padding: 12px 16px; min-width: 230px; max-width: 280px; }
+#tour .label, #tour .tlab { font-size: 12px; letter-spacing: 0.12em; color: var(--dim); }
+#tour .label b { color: #62f0a8; }
+#tour .big { font: 700 28px "Noto Sans TC", sans-serif; line-height: 1.2; margin: 2px 0 6px; color: var(--gold); }
+#tour .row { display: flex; justify-content: space-between; gap: 16px; font-size: 14px; color: var(--dim); font-family: "Noto Sans TC", sans-serif; }
+#tour .row b { color: var(--ink); }
+#tourListBtn { margin-top: 10px; width: 100%; font: 600 14px "Noto Sans TC", sans-serif; color: var(--ink); cursor: pointer; background: rgba(255, 207, 74, 0.14); border: 1px solid rgba(255, 207, 74, 0.5); border-radius: 10px; padding: 8px; }
+#tourListBtn:hover { background: rgba(255, 207, 74, 0.25); }
+
+#spot { position: fixed; right: 96px; top: 50%; transform: translateY(-50%); width: min(340px, calc(100vw - 32px)); padding: 18px 20px; z-index: 3; font-family: "Noto Sans TC", sans-serif; border-color: rgba(255, 207, 74, 0.45); }
+#spot .kicker { letter-spacing: 0.15em; font-size: 12px; }
+#spot h3 { font-size: 28px; margin: 4px 0 8px; color: var(--gold); }
+#spot p { margin: 0 0 14px; color: var(--ink); line-height: 1.65; font-size: 15px; }
+#spot .links { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+#spot .links a { display: block; text-align: center; padding: 11px 12px; border-radius: 12px; font-weight: 700; text-decoration: none; font-size: 15px; }
+#spotWeb { color: #022033; background: linear-gradient(90deg, #ffcf4a, #ff9b3d); }
+#spotMap { color: #022033; background: linear-gradient(90deg, #62f0a8, #39e1ff); }
+#spot .btns { gap: 8px; }
+#spot .btns button { flex: 1; font: 600 14px "Noto Sans TC", sans-serif; padding: 9px 10px; border-radius: 10px; cursor: pointer; color: var(--ink); background: rgba(255, 255, 255, 0.08); border: 1px solid var(--edge); }
+#spot .btns button:disabled { opacity: 0.6; cursor: default; }
+
+#tourList { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(3, 14, 26, 0.55); }
+.tlCard { width: min(820px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: rgba(6, 22, 36, 0.88); border: 1px solid var(--edge); border-radius: 18px; padding: 16px 18px; font-family: "Noto Sans TC", sans-serif; }
+.tlHead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.tlHead h3 { margin: 4px 0 10px; font-size: 22px; }
+.tlHead button, .tlFoot button { font: 600 14px "Noto Sans TC", sans-serif; padding: 6px 12px; border-radius: 10px; cursor: pointer; }
+.tlBody { display: flex; gap: 16px; min-height: 0; flex: 1; }
+#tourMap { width: 300px; height: auto; aspect-ratio: 360 / 560; border-radius: 12px; cursor: pointer; flex: none; align-self: flex-start; }
+#tourItems { flex: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; }
+.ti { display: flex; align-items: center; gap: 8px; text-align: left; padding: 7px 9px; border-radius: 10px; cursor: pointer; color: var(--ink); background: rgba(255, 255, 255, 0.05); border: 1px solid transparent; font-family: inherit; }
+.ti:hover { border-color: var(--edge); }
+.ti .st { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: rgba(255, 255, 255, 0.12); }
+.ti.v .st { background: #62f0a8; color: #022033; }
+.ti.t { border-color: var(--gold); background: rgba(255, 207, 74, 0.12); }
+.ti .tn { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.ti .tn b { font-size: 14px; }
+.ti .tn small { font-size: 11px; color: var(--dim); }
+.ti .td { font-size: 12px; color: var(--dim); white-space: nowrap; }
+.tlFoot { margin-top: 12px; font-size: 12px; color: var(--dim); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ghost.small { font-size: 12px !important; padding: 5px 10px !important; }
+
+.mk.tl { color: #bdeeff; }
+.mk.tl .hpb { display: none; }
+.mk.tl .tag { font-family: "Noto Sans TC", sans-serif; font-size: 13px; }
+.mk.tl.v { color: #62f0a8; }
+.mk.tl.lock { color: var(--gold); }
+.mk.tl.lock .tag { font-size: 15px; font-weight: 700; }
+#tourBtn { font: 700 20px "Rajdhani", "Noto Sans TC", sans-serif; letter-spacing: 0.06em; cursor: pointer; padding: 13px 22px; border-radius: 14px; transition: transform 0.15s; }
+#tourBtn:hover { transform: translateY(-2px); }
+
 @media (max-width: 760px) {
+  #tour { top: 10px; left: 10px; padding: 8px 12px; min-width: 150px; max-width: 190px; }
+  #tour .big { font-size: 20px; }
+  #tour .row { font-size: 12px; }
+  #spot { top: auto; bottom: 140px; transform: none; right: 16px; left: 16px; width: auto; padding: 14px 16px; }
+  #spot h3 { font-size: 22px; }
+  #spot p { font-size: 13px; margin-bottom: 10px; }
+  #spot .links { flex-direction: row; }
+  #spot .links a { flex: 1; padding: 9px 6px; font-size: 13px; }
+  .tlBody { flex-direction: column; overflow-y: auto; }
+  #tourMap { width: 100%; max-width: 260px; align-self: center; }
+  #tourItems { grid-template-columns: 1fr; overflow: visible; }
+  #tourBtn { font-size: 16px; padding: 11px 18px; }
   #race, #battle { top: 10px; left: 10px; padding: 8px 12px; min-width: 150px; }
   #battle .big { font-size: 26px; }
   #battle .row { font-size: 12px; }
